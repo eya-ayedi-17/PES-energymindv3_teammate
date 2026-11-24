@@ -1,0 +1,10 @@
+,detect_precision,detect_recall,detect_f1,event_recall_macro,event_precision_detection,false_alarms_per_house_day,fit_seconds,threshold
+statistical,0.215,0.5227,0.3047,1.0,0.236,2.8736,0.3438,4.4
+isolation_forest,0.2188,0.4476,0.2939,0.898,0.2312,3.7294,2.668,0.3947
+one_class_svm,0.9003,0.357,0.5112,0.8713,0.4484,0.3832,5.7769,-2.3317
+supervised_xgboost,0.98,0.5217,0.6809,0.6932,0.809,0.158,91.9976,
+supervised_lightgbm,0.9752,0.5196,0.678,0.6813,0.8129,0.1497,36.3083,
+supervised_random_forest,0.9577,0.5411,0.6915,0.711,0.7544,0.2308,141.9111,
+supervised_hist_gb,0.9705,0.5248,0.6812,0.6902,0.7967,0.1841,80.774,
+supervised_mlp,0.9587,0.519,0.6735,0.6173,0.765,0.2473,114.5044,
+supervised_extra_trees,0.9236,0.5111,0.658,0.6898,0.595,0.467,76.4489,

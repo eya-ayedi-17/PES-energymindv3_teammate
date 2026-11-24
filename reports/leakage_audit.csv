@@ -1,0 +1,72 @@
+feature_set,label,feature,auc,positives_covered,verdict
+single_house (used),localized_grid_outage,U_pu,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_min_pu,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_max_pu,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_1_pu,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_2_pu,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_3_pu,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_zero,1.0,1.0,expected
+single_house (used),localized_grid_outage,PF_min_phase,0.9995,1.0,expected
+single_house (used),localized_grid_outage,U_lag96_absdiff,0.9977,1.0,expected
+single_house (used),localized_grid_outage,grid_available,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_pu_minus_med96,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_pu_minus_med672,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_rel_trafo,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_rel_trafo_minus_med96,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_rel_trafo_minus_med672,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_1_rel_trafo,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_2_rel_trafo,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_3_rel_trafo,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_phase_rel_trafo_max,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_phase_rel_trafo_min,1.0,1.0,expected
+single_house (used),localized_grid_outage,U_dev_vs_trafo_dev,1.0,1.0,expected
+single_house (used),localized_grid_outage,inverter_status_code,1.0,0.279,expected
+single_house (used),localized_grid_outage,backup_mode_active,1.0,0.279,expected
+single_house (used),localized_grid_outage,transfer_switch_battery,1.0,0.279,expected
+single_house (used),sustained_undervoltage,U_pu,0.9926,1.0,expected
+single_house (used),sustained_undervoltage,U_min_pu,0.9925,1.0,expected
+single_house (used),sustained_undervoltage,U_max_pu,0.9913,1.0,expected
+single_house (used),sustained_undervoltage,U_1_pu,0.9925,1.0,expected
+single_house (used),sustained_undervoltage,U_3_pu,0.9953,1.0,expected
+single_house (used),sustained_undervoltage,transformer_U_pu,1.0,1.0,expected
+single_house (used),sustained_undervoltage,transformer_U_dev_med96,1.0,1.0,expected
+single_house (used),transformer_overload,U_pu,0.9945,1.0,expected
+single_house (used),transformer_overload,U_min_pu,0.9948,1.0,expected
+single_house (used),transformer_overload,U_max_pu,0.9927,1.0,expected
+single_house (used),transformer_overload,U_1_pu,0.995,1.0,expected
+single_house (used),transformer_overload,U_2_pu,0.9905,1.0,expected
+single_house (used),transformer_overload,U_3_pu,0.9961,1.0,expected
+single_house (used),transformer_overload,U_pu_minus_med96,0.9909,1.0,expected
+single_house (used),transformer_overload,transformer_loading_percent,1.0,1.0,expected
+single_house (used),transformer_overload,transformer_U_pu,1.0,1.0,expected
+single_house (used),transformer_overload,transformer_U_dev_med96,1.0,1.0,expected
+single_house (used),transformer_overload,trafo_loading_minus_med96,1.0,1.0,expected
+single_house (used),transformer_overload,trafo_loading_max_8,0.9969,1.0,expected
+single_house (used),transformer_overload,transformer_P_kw,1.0,1.0,expected
+single_house (used),transformer_overload,transformer_Q_kvar,1.0,1.0,expected
+single_house (used),transformer_overload,group_P_kw,1.0,1.0,expected
+single_house (used),transformer_overload,group_P_minus_med96,1.0,1.0,expected
+single_house (used),transformer_overload,rest_of_group_kw,1.0,1.0,expected
+single_house (used),transformer_overload,rest_of_group_minus_med96,1.0,1.0,expected
+single_house (used),meter_frozen,meter_repeat_run,1.0,1.0,expected
+single_house (used),meter_frozen,U_repeat_run,1.0,1.0,expected
+single_house (used),meter_dropout,meter_missing,1.0,1.0,expected
+single_house (used),meter_dropout,meter_missing_run,1.0,1.0,expected
+single_house (used),meter_dropout,meter_n_missing_6h,0.999,1.0,expected
+single_house (used),falsified_under_report,pv_clear_sky_mean_96_vs_672,0.9963,0.041,low coverage
+single_house (used),falsified_replay,meter_lag96_match,1.0,1.0,expected
+single_house (used),falsified_replay,meter_lag96_match_run,1.0,1.0,expected
+single_house (used),falsified_replay,meter_lag96_match_frac_24h,0.9981,1.0,expected
+single_house (used),falsified_replay,U_lag96_absdiff,1.0,1.0,expected
+removed (simulator truth),meter_frozen,P_resid_rel_std_8,0.9986,0.972,SUSPECT
+removed (simulator truth),meter_frozen,P_resid_step_8,0.9946,0.972,SUSPECT
+removed (simulator truth),meter_noise,S_pq_residual_phase_max,1.0,1.0,SUSPECT
+removed (simulator truth),meter_noise,IU_S_residual_rel,0.9962,1.0,SUSPECT
+removed (simulator truth),meter_noise,IU_S_residual_phase_max,1.0,1.0,SUSPECT
+removed (simulator truth),meter_noise,P_resid_rel_std_8,0.9968,1.0,SUSPECT
+removed (simulator truth),falsified_under_report,P_residual_W,1.0,1.0,SUSPECT
+removed (simulator truth),falsified_under_report,P_residual_rel,1.0,1.0,SUSPECT
+removed (simulator truth),falsified_under_report,P_logratio,1.0,1.0,SUSPECT
+removed (simulator truth),falsified_under_report,P_resid_rel_mean_8,0.9993,1.0,SUSPECT
+removed (simulator truth),falsified_under_report,P_resid_rel_mean_96,0.9962,1.0,SUSPECT
+removed (simulator truth),falsified_under_report,P_resid_rel_std_8,0.9939,0.999,SUSPECT

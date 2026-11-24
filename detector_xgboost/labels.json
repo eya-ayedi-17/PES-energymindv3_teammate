@@ -1,0 +1,100 @@
+{
+ "localized_grid_outage": {
+  "category": "real_grid_event",
+  "category_text": "REAL EVENT (grid) - physical state changed",
+  "house_type": "A+B",
+  "agent_action": "Confirm with grid_available and neighbours; log; notify operator with affected houses; mark zeros as real outage. Type A: record battery state + expected autonomy. Type B: mark house without supply.",
+  "human_decision": "Dispatch repair crew; decide restoration; approve isolation / re-energising"
+ },
+ "sustained_undervoltage": {
+  "category": "real_grid_event",
+  "category_text": "REAL EVENT (grid) - physical state changed",
+  "house_type": "A+B",
+  "agent_action": "Classify as network event (all houses sag); flag; notify; keep readings unchanged; track duration. Type A: note battery vs grid supply.",
+  "human_decision": "Any network action: tap change, load reduction, feeder reconfiguration, transformer inspection"
+ },
+ "transformer_overload": {
+  "category": "real_grid_event",
+  "category_text": "REAL EVENT (grid) - physical state changed",
+  "house_type": "A+B",
+  "agent_action": "Flag; compute loading and time above 100 %; notify. Type A: propose holding the house on battery while SoC allows. Type B: notify only.",
+  "human_decision": "Approve relief action; dispatch inspection; decide load shedding; plan capacity upgrade"
+ },
+ "battery_charge_failure": {
+  "category": "real_equipment_event",
+  "category_text": "REAL EVENT (home equipment) - physical state changed",
+  "house_type": "A",
+  "agent_action": "Flag; compare charge with available PV; mark SoC unreliable; notify. Device rule unchanged.",
+  "human_decision": "Inspect BMS / inverter / charge controller; approve remote restart; replace"
+ },
+ "battery_discharge_failure": {
+  "category": "real_equipment_event",
+  "category_text": "REAL EVENT (home equipment) - physical state changed",
+  "house_type": "A",
+  "agent_action": "Flag (HIGH priority if essential load unserved while SoC high); log unmet demand; notify.",
+  "human_decision": "Inspect BMS / inverter; approve remote restart or reset; replace"
+ },
+ "pv_partial_shading": {
+  "category": "real_equipment_event",
+  "category_text": "REAL EVENT (home equipment) - physical state changed",
+  "house_type": "A",
+  "agent_action": "Flag; check clear-sky ratio and neighbouring PV to separate shading from cloud; advisory note.",
+  "human_decision": "Inspect and clean panels (sand/dust); check shading source"
+ },
+ "meter_frozen": {
+  "category": "sensor_problem",
+  "category_text": "SENSOR / DATA PROBLEM - physical state unchanged",
+  "house_type": "A+B",
+  "agent_action": "Flag; mark channel stale; advisory estimate (type A: inverter/PV/battery as 2nd source); quarantine; request retransmission.",
+  "human_decision": "Technician or approved remote meter restart; check communication"
+ },
+ "meter_dropout": {
+  "category": "sensor_problem",
+  "category_text": "SENSOR / DATA PROBLEM - physical state unchanged",
+  "house_type": "A+B",
+  "agent_action": "Flag; mark channel stale; advisory estimate; quarantine; request retransmission (read-only).",
+  "human_decision": "Technician or approved remote meter restart; check communication (GPRS/PLC)"
+ },
+ "meter_drift": {
+  "category": "sensor_problem",
+  "category_text": "SENSOR / DATA PROBLEM - physical state unchanged",
+  "house_type": "A+B",
+  "agent_action": "Flag; estimate drift trend; advisory correction factor on a separate channel (raw kept).",
+  "human_decision": "Recalibrate or replace meter; approve any applied correction"
+ },
+ "meter_noise": {
+  "category": "sensor_problem",
+  "category_text": "SENSOR / DATA PROBLEM - physical state unchanged",
+  "house_type": "A+B",
+  "agent_action": "Flag; advisory smoothed signal on a separate channel (raw kept).",
+  "human_decision": "Recalibrate or replace meter"
+ },
+ "meter_bias_current": {
+  "category": "sensor_problem",
+  "category_text": "SENSOR / DATA PROBLEM - physical state unchanged",
+  "house_type": "A+B",
+  "agent_action": "Flag; advisory corrected value (type A: only while importing).",
+  "human_decision": "Recalibrate sensor / CT; approve correction factor"
+ },
+ "voltage_sensor_fault": {
+  "category": "sensor_problem",
+  "category_text": "SENSOR / DATA PROBLEM - physical state unchanged",
+  "house_type": "A+B",
+  "agent_action": "Flag; quarantine voltage channel; compare with neighbours / transformer voltage.",
+  "human_decision": "Recalibrate voltage sensor; approve correction"
+ },
+ "falsified_under_report": {
+  "category": "data_manipulation",
+  "category_text": "DATA MANIPULATION (deliberate) - physical state unchanged",
+  "house_type": "A+B",
+  "agent_action": "Flag ONLY; keep evidence (energy-balance gap, residual trend); never conclude theft.",
+  "human_decision": "Field inspection under the legal procedure (STEG); billing correction"
+ },
+ "falsified_replay": {
+  "category": "data_manipulation",
+  "category_text": "DATA MANIPULATION (deliberate) - physical state unchanged",
+  "house_type": "A+B",
+  "agent_action": "Flag; quarantine channel (exact 24 h match); notify security.",
+  "human_decision": "Security check of meter and data path; field inspection"
+ }
+}

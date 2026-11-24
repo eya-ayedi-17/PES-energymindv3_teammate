@@ -1,0 +1,323 @@
+"""EnergyMind - single-house feature engineering on raw 15-min readings (stand-alone copy of features_lib.py).
+Input : one house (meter, PV/battery/inverter columns if any) + transformer (timestamp + TRAFO_COLS_SINGLE),
+        same timestamps, one row every 15 minutes.
+Output: one row per time step with the engineered features (float32).
+Streaming: latest_features(buffer_house, buffer_trafo) gives the features of the newest rows; the buffer needs
+MIN_HISTORY_STEPS rows. It runs the same code as training (no train/serve skew).
+"""
+from __future__ import annotations
+
+import warnings
+
+import numpy as np
+import pandas as pd
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)   # all-NaN windows (night, missing data) are expected
+U_BASE = np.float64(230.94010767585033)
+METER_CH = ['U_1', 'U_2', 'U_3', 'I_1', 'I_2', 'I_3', 'P_1', 'P_2', 'P_3', 'Q_1', 'Q_2', 'Q_3', 'S_1', 'S_2', 'S_3', 'PF_1', 'PF_2', 'PF_3', 'P_TOT', 'Q_TOT', 'S_TOT', 'PF_TOT']
+TYPE_A = []          # a house is PV + battery when it has a P_PV_W column
+PV_KWP = {'house_02': 5.0, 'house_04': 3.0, 'house_09': 4.0, 'house_11': 3.0}
+INV_STATUS = {'standby': 0, 'inverting': 1, 'inverting_charging': 2, 'grid_mode': 3, 'grid_mode_charging': 4, 'backup': 5, 'backup_charging': 6}
+TRAFO_COLS_SINGLE = ['transformer_loading_percent', 'transformer_P_kw', 'transformer_Q_kvar', 'transformer_U_pu', 'other_feeders_P_kw']
+HIST_DAYS = 14
+MIN_HISTORY_STEPS = 2688
+RUN_CAP = 672
+SIMULATOR_TRUTH_FEATURES = ['S_pq_residual_rel', 'S_pq_residual_phase_max', 'IU_S_residual_rel', 'IU_S_residual_phase_max', 'P_ref_W', 'P_residual_W', 'P_residual_rel', 'P_logratio', 'P_resid_rel_mean_8', 'P_resid_rel_mean_96', 'P_resid_rel_mean_672', 'P_resid_rel_std_8', 'P_resid_rel_std_96', 'P_resid_rel_trend_96', 'P_resid_rel_trend_288', 'P_resid_step_8', 'P_resid_step_max_672', 'P_resid_trend_curv', 'P_resid_trend_ratio', 'P_resid_mean96_minus_672', 'app_sum_W', 'inv_out_over_load']
+
+def _run_length(flag: np.ndarray) -> np.ndarray:
+    """length of the current run of True values (0 where False)."""
+    out = np.zeros(len(flag), np.float32)
+    c = 0
+    for i, f in enumerate(flag):
+        c = c + 1 if f else 0
+        out[i] = c
+    return out
+
+
+def _roll(x, w, fn="mean", minp=1):
+    r = pd.Series(x).rolling(w, min_periods=minp)
+    return getattr(r, fn)().to_numpy(np.float32)
+
+
+def _same_tod_median(x: np.ndarray, days: int) -> np.ndarray:
+    """median of the same 15-min slot over the previous `days` days (NaN until enough history)."""
+    x = np.asarray(x, float)
+    lag = np.full((len(x), days), np.nan)
+    for k in range(1, days + 1):
+        lag[96 * k:, k - 1] = x[:-96 * k] if len(x) > 96 * k else np.nan
+    with np.errstate(all="ignore"):
+        med = np.nanmedian(lag, axis=1)
+    med[np.sum(np.isfinite(lag), axis=1) < max(3, days // 2)] = np.nan
+    return med
+
+
+def house_features(h: str, m: pd.DataFrame, is_a: bool | None = None, kwp: float | None = None) -> pd.DataFrame:
+    """is_a / kwp default to the known 13-house inventory; pass them for any other house."""
+    f = {}
+    isA = (h in TYPE_A) if is_a is None else is_a
+    kwp = PV_KWP.get(h) if kwp is None else kwp
+    U = m[["U_1", "U_2", "U_3"]].to_numpy(float)
+    I = m[["I_1", "I_2", "I_3"]].to_numpy(float)
+    P, Q, S = m.P_TOT.to_numpy(float), m.Q_TOT.to_numpy(float), m.S_TOT.to_numpy(float)
+    Um = np.nanmean(U, axis=1) if np.isfinite(U).any() else np.full(len(m), np.nan)
+    f["U_pu"] = Um / U_BASE
+    f["U_min_pu"] = np.nanmin(U, axis=1) / U_BASE
+    f["U_max_pu"] = np.nanmax(U, axis=1) / U_BASE
+    for k in range(3):
+        f[f"U_{k+1}_pu"] = U[:, k] / U_BASE
+    with np.errstate(divide="ignore", invalid="ignore"):
+        f["U_phase_spread"] = (np.nanmax(U, axis=1) - np.nanmin(U, axis=1)) / np.where(Um > 1, Um, np.nan)
+    f["U_zero"] = (Um < 1).astype(np.float32)
+    f["P_TOT"], f["Q_TOT"], f["S_TOT"], f["PF_TOT"] = P, Q, S, m.PF_TOT.to_numpy(float)
+    f["I_sum"] = I.sum(axis=1)
+    f["PF_min_phase"] = m[["PF_1", "PF_2", "PF_3"]].min(axis=1).to_numpy()
+    s_floor = np.maximum(S, 30)
+    f["S_pq_residual_rel"] = np.abs(S - np.sqrt(P ** 2 + Q ** 2)) / s_floor
+    sp = [np.abs(m[f"S_{k}"] - np.sqrt(m[f"P_{k}"] ** 2 + m[f"Q_{k}"] ** 2)) / np.maximum(m[f"S_{k}"], 30) for k in "123"]
+    f["S_pq_residual_phase_max"] = np.max(np.column_stack(sp), axis=1)
+    f["IU_S_residual_rel"] = np.abs((U * I).sum(axis=1) - S) / s_floor
+    iu = [np.abs(m[f"U_{k}"] * m[f"I_{k}"] - m[f"S_{k}"]) / np.maximum(m[f"S_{k}"], 30) for k in "123"]
+    f["IU_S_residual_phase_max"] = np.max(np.column_stack(iu), axis=1)
+    # --- missing / repeat / replay
+    X = m[METER_CH].to_numpy(float)
+    miss = np.isnan(X).all(axis=1)
+    f["meter_missing"] = miss.astype(np.float32)
+    f["meter_missing_run"] = _run_length(miss)
+    f["meter_n_missing_6h"] = _roll(miss.astype(float), 24, "sum")
+    rep = np.zeros(len(m), bool)
+    rep[1:] = np.all(X[1:] == X[:-1], axis=1)
+    f["meter_repeat_run"] = _run_length(rep)
+    prep = np.zeros(len(m), bool); prep[1:] = P[1:] == P[:-1]
+    f["P_TOT_repeat_run"] = _run_length(prep)
+    urep = np.zeros(len(m), bool); urep[1:] = U[1:, 0] == U[:-1, 0]
+    f["U_repeat_run"] = _run_length(urep)
+    lag = np.zeros(len(m), bool)
+    lag[96:] = np.all(np.isclose(X[96:], X[:-96], rtol=0, atol=1e-9), axis=1) & ~miss[96:]
+    f["meter_lag96_match"] = lag.astype(np.float32)
+    f["meter_lag96_match_run"] = _run_length(lag)
+    f["meter_lag96_match_frac_24h"] = _roll(lag.astype(float), 96, "mean")
+    P96 = np.r_[np.full(96, np.nan), P[:-96]]
+    f["P_TOT_lag96_absdiff_rel"] = np.abs(P - P96) / np.maximum(np.abs(P), 50)
+    U96 = np.r_[np.full(96, np.nan), U[:-96, 0]]
+    f["U_lag96_absdiff"] = np.abs(U[:, 0] - U96)
+    f["P_TOT_std_4"] = _roll(P, 4, "std", 2)
+    dP = np.r_[np.nan, np.diff(P)]
+    f["P_TOT_rough_8"] = _roll(np.abs(dP), 8, "mean") / np.maximum(_roll(np.abs(P), 8, "mean"), 50)
+    # --- reference (appliance sub-metering / inverter) and residuals
+    app = m[[c for c in m if c.startswith("app_")]].to_numpy(float).sum(axis=1)
+    ref =np.clip(app - m.inverter_ac_output_w.to_numpy(float), 0, None) if isA else app
+    f["P_ref_W"] = ref
+    f["P_residual_W"] = P - ref
+    f["P_residual_rel"] = (P - ref) / np.maximum(ref, 100)
+    f["P_logratio"] = np.log((np.clip(P, 0, None) + 50) / (ref + 50))
+    imp = ref > 150
+    lr = np.where(imp, f["P_logratio"], np.nan)
+    f["P_resid_rel_mean_8"] = _roll(lr, 8, "mean")
+    f["P_resid_rel_mean_96"] = _roll(lr, 96, "mean")
+    f["P_resid_rel_mean_672"] = _roll(lr, 672, "mean", 24)
+    f["P_resid_rel_std_8"] = _roll(lr, 8, "std", 3)
+    f["P_resid_rel_std_96"] = _roll(lr, 96, "std", 6)
+    m96 = pd.Series(f["P_resid_rel_mean_96"])
+    f["P_resid_rel_trend_96"] = (m96 - m96.shift(96)).to_numpy(np.float32)
+    f["P_resid_rel_trend_288"] = (m96 - m96.shift(288)).to_numpy(np.float32)
+    # onset shape: a bias / tampering JUMPS in one step then stays flat; a drift RAMPS from zero
+    m8 = pd.Series(f["P_resid_rel_mean_8"]).ffill(limit=96)
+    jump = (m8 - m8.shift(8)).abs()
+    f["P_resid_step_8"] = jump.to_numpy(np.float32)
+    f["P_resid_step_max_672"] = jump.rolling(672, min_periods=8).max().to_numpy(np.float32)
+    t96 = pd.Series(f["P_resid_rel_trend_96"])
+    f["P_resid_trend_curv"] = (t96 - t96.shift(96)).to_numpy(np.float32)
+    f["P_resid_trend_ratio"] = (pd.Series(f["P_resid_rel_trend_288"]) / (m96.abs() + 0.01)).to_numpy(np.float32)
+    f["P_resid_mean96_minus_672"] = (m96 - pd.Series(f["P_resid_rel_mean_672"])).to_numpy(np.float32)
+    f["importing_flag"] = imp.astype(np.float32)
+    f["app_sum_W"] = app
+    f["grid_available"] = m.grid_available.to_numpy(float)
+    # voltage history of the house itself
+    f["U_pu_minus_med96"] = f["U_pu"] - _roll(f["U_pu"], 96, "median")
+    f["U_pu_minus_med672"] = f["U_pu"] - _roll(f["U_pu"], 672, "median", 24)
+    # --- PV + battery
+    if isA:
+        pv = m.P_PV_W.to_numpy(float)
+        soc = m.battery_soc_percent.to_numpy(float)
+        chg = m.battery_charge_power_w.to_numpy(float)
+        dis = m.battery_discharge_power_w.to_numpy(float)
+        inv = m.inverter_ac_output_w.to_numpy(float)
+        f["P_PV_W"] = pv
+        f["P_PV_vs_kwp"] = pv / (kwp * 1000)
+        f["dP_PV"] = np.r_[np.nan, np.diff(pv)] / (kwp * 1000)
+        f["battery_soc_percent"] = soc
+        f["soc_delta"] = np.r_[np.nan, np.diff(soc)]
+        f["soc_delta_4"] = soc - np.r_[np.full(4, np.nan), soc[:-4]]
+        f["battery_charge_power_w"] = chg
+        f["battery_discharge_power_w"] = dis
+        f["inverter_ac_output_w"] = inv
+        f["inverter_status_code"] = m.inverter_status.map(INV_STATUS).to_numpy(float)
+        f["backup_mode_active"] = m.backup_mode_active.to_numpy(float)
+        f["transfer_switch_battery"] = (m.transfer_switch_status == "BATTERY").to_numpy(float)
+        bd = m.backup_load_demand_w.to_numpy(float)
+        f["unmet_backup_demand_w"] = m.unmet_backup_demand_w.to_numpy(float)
+        f["unmet_ratio"] = f["unmet_backup_demand_w"] / np.maximum(bd, 50)
+        f["backup_load_served_w"] = m.backup_load_served_w.to_numpy(float)
+        f["inv_out_over_load"] = inv / np.maximum(app, 50)
+        f["grid_import_soc_high"] = ((P > 100) & (soc > 20)).astype(np.float32)
+        f["grid_import_soc_high_run"] = _run_length((P > 100) & (soc > 20) & (dis < 10))
+        f["soc_flat_run"] = _run_length(np.r_[False, np.abs(np.diff(soc)) < 0.05] & (soc < 97))
+        f["battery_I_consistency"] = np.abs(m.battery_current_a.to_numpy(float) * m.battery_voltage_v.to_numpy(float) - (chg - dis)) / 100
+    return pd.DataFrame({k: np.asarray(v, np.float32) for k, v in f.items()})
+
+
+def build_single_house_features(m: pd.DataFrame, tm: pd.DataFrame, house_id: str = "house",
+                                pv_kwp: float | None = None) -> pd.DataFrame:
+    """Features for ONE house. m = house meter data (same columns as data/02_injected/measured/house_XX),
+    tm = transformer data (same timestamps) with columns timestamp + TRAFO_COLS_SINGLE.
+    Type A (PV + battery) is detected from the presence of P_PV_W; pv_kwp defaults to the known inventory,
+    else it is estimated from the measured PV peak."""
+    m = m.reset_index(drop=True)
+    tm = tm.reset_index(drop=True)
+    if len(m) != len(tm) or not (pd.to_datetime(m.timestamp).values == pd.to_datetime(tm.timestamp).values).all():
+        raise ValueError("house and transformer data must have exactly the same timestamps (15 min, no gaps)")
+    missing = [c for c in TRAFO_COLS_SINGLE if c not in tm]
+    if missing:
+        raise ValueError(f"transformer data is missing columns: {missing}")
+    idx = pd.to_datetime(m.timestamp)
+    T = len(m)
+    is_a = "P_PV_W" in m.columns and m.P_PV_W.notna().any()
+    if is_a and pv_kwp is None:
+        pv_kwp = PV_KWP.get(house_id) or max(float(np.nanpercentile(m.P_PV_W, 99.9)) / 850, 0.5)
+    d = house_features(house_id, m, is_a=is_a, kwp=pv_kwp)
+
+    # ---- PV: the house's OWN clear-sky envelope (no neighbours available)
+    tod = (idx.dt.hour * 4 + idx.dt.minute // 15).to_numpy()
+    if is_a:
+        v = d["P_PV_vs_kwp"].to_numpy()
+        day = idx.dt.normalize().to_numpy()
+        piv = pd.DataFrame({"v": v, "tod": tod, "day": day}).pivot_table(
+            index="day", columns="tod", values="v", aggfunc="first", dropna=False)
+        piv = piv.reindex(pd.date_range(piv.index.min(), piv.index.max(), freq="D"))
+        # past-only window (the day itself and the 20 days before): usable in real time, no look-ahead
+        envd = piv.rolling(21, min_periods=3).quantile(0.9)
+        env = envd.to_numpy()[envd.index.get_indexer(day), np.clip(tod, 0, envd.shape[1] - 1)]
+        cs = np.where(env > 0.05, v / np.maximum(env, 0.05), np.nan)
+        d["pv_clear_sky_ratio"] = cs
+        d["pv_clear_sky_mean_4"] = _roll(cs, 4, "mean")
+        d["pv_clear_sky_mean_96"] = _roll(np.where(env > 0.15, cs, np.nan), 96, "mean")
+        d["pv_clear_sky_std_8"] = _roll(cs, 8, "std", 3)          # clouds = jumpy, shading = smooth
+        d["pv_clear_sky_mean_96_vs_672"] = d["pv_clear_sky_mean_96"].to_numpy() - _roll(
+            np.where(env > 0.15, cs, np.nan), 672, "mean", 24)
+        exp_pv = env * pv_kwp * 1000
+        inv = d["inverter_ac_output_w"].to_numpy(); chg = d["battery_charge_power_w"].to_numpy()
+        soc = d["battery_soc_percent"].to_numpy(); pv = d["P_PV_W"].to_numpy()
+        # shading vs clouds WITHOUT neighbours: shading is a STEADY loss (soiling: whole day; object shadow:
+        # the same hours every day), clouds are random. Only use steps where PV is not curtailed (battery not full).
+        cs_nc = np.where((soc < 95) & (env > 0.15), cs, np.nan)
+        day_med = _roll(cs_nc, 96, "median", 8)
+        day_std = _roll(cs_nc, 96, "std", 8)
+        d["pv_cs_day_median"] = day_med
+        d["pv_cs_day_cv"] = day_std / np.maximum(day_med, 0.05)
+        dip = cs_nc - day_med
+        lagged = lambda x, k: np.r_[np.full(k, np.nan), x[:-k]]                     # noqa: E731
+        with np.errstate(all="ignore"):
+            d["pv_dip_same_tod_3d"] = np.nanmean(np.column_stack([lagged(dip, 96 * k) for k in (1, 2, 3)]), axis=1)
+            d["pv_cs_same_tod_3d"] = np.nanmean(np.column_stack([lagged(cs_nc, 96 * k) for k in (1, 2, 3)]), axis=1)
+            d["pv_cs_same_tod_3d_std"] = np.nanstd(np.column_stack([cs_nc] + [lagged(cs_nc, 96 * k) for k in (1, 2, 3)]), axis=1)
+        d["pv_dip_now"] = dip
+        d["pv_cs_day_median_3d"] = _roll(day_med, 288, "mean", 24)
+        d["pv_expected_W"] = exp_pv
+        d["charge_deficit_w"] = np.where(soc < 97, np.clip(pv - inv / 0.95 - chg, 0, None), 0)
+        d["charge_deficit_run"] = _run_length(d["charge_deficit_w"].to_numpy() > 400)
+        d["charge_vs_pv"] = chg / np.maximum(pv, 100)
+        d["curtail_vs_clear_sky"] = np.where(soc < 97, np.clip(exp_pv - pv, 0, None), 0) / max(pv_kwp * 1000, 1)
+
+    # ---- transformer: all its measurements (loading, P, Q, LV voltage, other feeders)
+    tl = tm.transformer_loading_percent.to_numpy(float)
+    tU = tm.transformer_U_pu.to_numpy(float)
+    tP = tm.transformer_P_kw.to_numpy(float)
+    tQ = tm.transformer_Q_kvar.to_numpy(float)
+    oth = tm.other_feeders_P_kw.to_numpy(float)
+    d["transformer_loading_percent"] = tl
+    d["transformer_U_pu"] = tU
+    d["transformer_U_dev_med96"] = tU - _roll(tU, 96, "median")
+    d["trafo_loading_minus_med96"] = tl - _roll(tl, 96, "median")
+    d["trafo_loading_max_8"] = _roll(tl, 8, "max")
+    d["transformer_P_kw"] = tP
+    d["transformer_Q_kvar"] = tQ
+    d["transformer_PF"] = np.abs(tP) / np.maximum(np.sqrt(tP ** 2 + tQ ** 2), 1)
+    d["other_feeders_P_kw"] = oth
+    # energy balance seen from ONE house: the monitored group (transformer - other feeders) contains this house
+    grp = tP - oth
+    p_house = d["P_TOT"].to_numpy() / 1000
+    d["group_P_kw"] = grp
+    d["group_P_minus_med96"] = grp - _roll(grp, 96, "median")
+    share = p_house / np.maximum(grp, 1)
+    d["house_share_of_group"] = share
+    d["rest_of_group_kw"] = grp - p_house
+    d["rest_of_group_minus_med96"] = d["rest_of_group_kw"].to_numpy() - _roll(d["rest_of_group_kw"].to_numpy(), 96, "median")
+
+    # ---- reference from the house's OWN HISTORY (replaces the exact appliance sum of the simulator)
+    # same time of day over the previous HIST_DAYS days: what this meter usually reads now
+    P = d["P_TOT"].to_numpy().astype(float)
+    with np.errstate(all="ignore"):
+        p_ref = _same_tod_median(P, HIST_DAYS)
+        s_ref = _same_tod_median(share, HIST_DAYS)
+        d["hist_P_ref_W"] = p_ref
+        lr = np.log((np.clip(P, 0, None) + 50) / (np.clip(p_ref, 0, None) + 50))
+        d["hist_P_logratio"] = lr
+        d["hist_P_logratio_mean_8"] = _roll(lr, 8, "mean")
+        d["hist_P_logratio_mean_96"] = _roll(lr, 96, "mean", 24)
+        d["hist_P_logratio_mean_672"] = _roll(lr, 672, "mean", 96)
+        d["hist_P_logratio_std_8"] = _roll(lr, 8, "std", 3)
+        d["hist_P_logratio_std_96"] = _roll(lr, 96, "std", 24)
+        m96 = pd.Series(d["hist_P_logratio_mean_96"].to_numpy())
+        d["hist_P_logratio_trend_96"] = (m96 - m96.shift(96)).to_numpy()
+        d["hist_P_logratio_trend_288"] = (m96 - m96.shift(288)).to_numpy()
+        d["hist_P_logratio_mean96_minus_672"] = m96.to_numpy() - d["hist_P_logratio_mean_672"].to_numpy()
+        m8 = pd.Series(d["hist_P_logratio_mean_8"].to_numpy()).ffill(limit=96)
+        jump = (m8 - m8.shift(8)).abs()
+        d["hist_P_step_8"] = jump.to_numpy()
+        d["hist_P_step_max_672"] = jump.rolling(672, min_periods=8).max().to_numpy()
+        # house share of the monitored group vs its usual share: weather and season cancel out
+        d["hist_share_ref"] = s_ref
+        slr = np.log((np.clip(share, 0, None) + 0.005) / (np.clip(s_ref, 0, None) + 0.005))
+        d["hist_share_logratio"] = slr
+        d["hist_share_logratio_mean_96"] = _roll(slr, 96, "mean", 24)
+        d["hist_share_logratio_mean_672"] = _roll(slr, 672, "mean", 96)
+        sm96 = pd.Series(d["hist_share_logratio_mean_96"].to_numpy())
+        d["hist_share_logratio_trend_288"] = (sm96 - sm96.shift(288)).to_numpy()
+        # mean power of the last 24 h vs the same 24 h one week before
+        e96 = _roll(P, 96, "mean", 48)
+        d["hist_day_energy_ratio_7d"] = (e96 + 50) / (np.r_[np.full(672, np.nan), e96[:-672]] + 50)
+        d["importing_flag"] = (P > 150).astype(np.float32)
+    # house voltage vs transformer voltage: replaces the 'vs neighbours' comparison
+    d["U_rel_trafo"] = d["U_pu"].to_numpy() - tU
+    d["U_rel_trafo_minus_med96"] = d["U_rel_trafo"].to_numpy() - _roll(d["U_rel_trafo"].to_numpy(), 96, "median")
+    d["U_rel_trafo_minus_med672"] = d["U_rel_trafo"].to_numpy() - _roll(d["U_rel_trafo"].to_numpy(), 672, "median", 24)
+    for k in "123":
+        d[f"U_{k}_rel_trafo"] = d[f"U_{k}_pu"].to_numpy() - tU
+    ph = np.column_stack([d[f"U_{k}_rel_trafo"].to_numpy() for k in "123"])
+    with np.errstate(all="ignore"):
+        d["U_phase_rel_trafo_max"] = np.nanmax(ph, axis=1)
+        d["U_phase_rel_trafo_min"] = np.nanmin(ph, axis=1)
+    d["U_dev_vs_trafo_dev"] = d["U_pu_minus_med96"].to_numpy() - d["transformer_U_dev_med96"].to_numpy()
+    d["house_type_A"] = float(is_a)
+    d["hour_sin"] = np.sin(2 * np.pi * tod / 96)
+    d["hour_cos"] = np.cos(2 * np.pi * tod / 96)
+    # features that rely on simulator truth (exact appliance sum, channel-independent noise) are removed
+    d = d.drop(columns=[c for c in SIMULATOR_TRUTH_FEATURES if c in d.columns])
+    # run-length counters capped at 7 days: longer runs carry no extra information and would depend on
+    # where a streaming buffer starts
+    for c in [c for c in d.columns if c.endswith("_run")]:
+        d[c] = np.minimum(d[c].to_numpy(), RUN_CAP)
+    d.insert(0, "house_id", house_id)
+    d.insert(0, "timestamp", idx.values)
+    fcols = [c for c in d.columns if c not in ("timestamp", "house_id")]
+    d[fcols] = d[fcols].astype(np.float32).replace([np.inf, -np.inf], np.nan)
+    return d
+
+
+def latest_features(m: pd.DataFrame, tm: pd.DataFrame, house_id: str = "house", pv_kwp: float | None = None,
+                    n_last: int = 1) -> pd.DataFrame:
+    """Streaming use: give the rolling buffer of raw readings (at least MIN_HISTORY_STEPS rows, 15 min)
+    and get the features of the newest n_last steps. Same code path as training, so no train/serve skew."""
+    if len(m) < MIN_HISTORY_STEPS:
+        raise ValueError(f"need at least {MIN_HISTORY_STEPS} rows ({MIN_HISTORY_STEPS // 96} days) of history, got {len(m)}")
+    return build_single_house_features(m, tm, house_id, pv_kwp).iloc[-n_last:].reset_index(drop=True)
