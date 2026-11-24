@@ -11,8 +11,8 @@ pip install -r requirements.txt
 
 ## Try it on the sample data
 ```
-python predict.py --house-file sample_data/house_07.csv --transformer-file sample_data/transformer_house_07.csv --out result_house_07.csv --explain --lime 10
-python predict.py --house-file sample_data/house_09.csv --transformer-file sample_data/transformer_house_09.csv --out result_house_09.csv --explain
+python predict.py --house-file sample_data/house_07.csv --transformer-file sample_data/transformer_house_07.csv --out result_house_07.csv
+python predict.py --house-file sample_data/house_09.csv --transformer-file sample_data/transformer_house_09.csv --out result_house_09.csv
 ```
 `house_07` has no PV; `house_09` has PV + battery. Each sample covers 45 days: the first 28 days are the history
 the features need, the last 14 days are a test block never used for training. Compare the `anomalies` column with
@@ -20,7 +20,7 @@ the features need, the last 14 days are a test block never used for training. Co
 
 ## Your own house
 ```
-python predict.py --house-file my_house.csv --transformer-file my_trafo.csv --out result.csv --only-anomalies --explain
+python predict.py --house-file my_house.csv --transformer-file my_trafo.csv --out result.csv --only-anomalies
 ```
 | File | What it needs |
 |---|---|
@@ -45,9 +45,10 @@ feature code as training.
 
 ## Output (one row per 15 min)
 `anomalies` ("normal" or up to two: "a|b"), `primary_anomaly`, `confidence`, `category` (real event or sensor /
-data problem), `agent_action`, `needs_human`, `p_<type>` for the 14 types, and with `--explain` / `--lime`:
+data problem), `agent_action`, `needs_human`, `p_<type>` for the 14 types, and the explanations:
 `shap_top` (features that pushed the model towards the detected type, with their SHAP values) and `lime_top`
-(LIME's local rules and weights).
+(LIME's local rules and weights). The terminal also prints, for the first 20 alarm episodes, when, what,
+how sure, the SHAP and LIME reasons and the suggested action (`--show N` to change, `--lime 0` for speed).
 
 ## Test scores (simulated test set)
 Macro F1 0.730 | detection precision 0.980, recall 0.522,

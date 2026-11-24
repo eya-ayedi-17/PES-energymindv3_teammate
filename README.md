@@ -9,8 +9,10 @@ It was trained on our simulated Tunisian low-voltage network (SimBench LV1.101, 
 ```
 cd detector_xgboost
 pip install -r requirements.txt
-python predict.py --house-file sample_data/house_07.csv --transformer-file sample_data/transformer_house_07.csv --out result.csv --explain --lime 5
+python predict.py --house-file sample_data/house_07.csv --transformer-file sample_data/transformer_house_07.csv --out result.csv
 ```
+
+The terminal prints, for the first 20 alarm episodes: when, which anomaly, how sure, the SHAP and LIME reasons and the suggested action. Options: `--show N` (episodes printed), `--lime N` (episodes explained by LIME, 0 = faster), `--no-explain`.
 
 `sample_data/` holds 45 days of a house without PV (`house_07`) and a house with PV + battery (`house_09`), with their transformer data and the true injected anomalies (`*_true_labels.csv`, column `split` = train / val / test).
 
@@ -47,8 +49,8 @@ One row every 15 minutes, the same timestamps in both, at least 28 days. No appl
 | `category` | real grid event / real equipment event / sensor problem / data manipulation |
 | `agent_action`, `needs_human` | what the agent may do alone, and what a person must decide |
 | `p_<type>` | probability of each of the 14 types |
-| `shap_top` (`--explain`) | the features that pushed the model towards the detected type, with their values and SHAP contributions, in plain words |
-| `lime_top` (`--lime N`) | LIME's local rules and weights, for the first row of the first N alarm episodes |
+| `shap_top` | the features that pushed the model towards the detected type, with their values and SHAP contributions, in plain words |
+| `lime_top` | LIME's local rules and weights, for the first row of the first N alarm episodes (`--lime N`, default 10) |
 
 Example (a replay of yesterday's data):
 ```

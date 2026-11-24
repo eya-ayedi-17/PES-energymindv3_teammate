@@ -2,7 +2,9 @@
 
 Command line:
     python predict.py --house-file my_house.csv --transformer-file my_trafo.csv [--out result.csv]
-                      [--house-id house_07] [--pv-kwp 4.0] [--only-anomalies] [--explain] [--lime 20]
+                      [--house-id house_07] [--pv-kwp 4.0] [--only-anomalies] [--lime 10] [--show 20] [--no-explain]
+    SHAP (every anomalous row) and LIME (first 10 episodes) are always computed and printed for the first 20
+    alarm episodes; they are also written to the shap_top / lime_top columns of the output file.
 Python:
     from predict import Detector
     det = Detector()
@@ -130,23 +132,50 @@ def main():
     ap.add_argument("--house-id", default=None, help="name used in the output (default: file name)")
     ap.add_argument("--pv-kwp", type=float, default=None, help="PV size; estimated from the data if not given")
     ap.add_argument("--only-anomalies", action="store_true")
-    ap.add_argument("--explain", action="store_true", help="SHAP reasons for every anomalous row (shap_top)")
-    ap.add_argument("--lime", type=int, default=0, metavar="N", help="LIME reasons for the first N alarm episodes (lime_top)")
+    ap.add_argument("--lime", type=int, default=10, metavar="N",
+                    help="LIME reasons for the first N alarm episodes (default 10; 0 = no LIME, faster)")
+    ap.add_argument("--show", type=int, default=20, metavar="N",
+                    help="print the SHAP / LIME explanation of the first N alarm episodes (default 20; 0 = none)")
+    ap.add_argument("--no-explain", action="store_true", help="no SHAP column (faster)")
     a = ap.parse_args()
     m, tm = read(a.house_file), read(a.transformer_file)
     hid = a.house_id or Path(a.house_file).stem
     if len(m) < MIN_HISTORY_STEPS:
         print(f"warning: {len(m)} rows < {MIN_HISTORY_STEPS} ({MIN_HISTORY_STEPS // 96} days): early rows have incomplete features")
-    res = Detector().detect(m, tm, hid, a.pv_kwp, explain=a.explain, lime_episodes=a.lime)
+    res = Detector().detect(m, tm, hid, a.pv_kwp, explain=not a.no_explain, lime_episodes=a.lime)
+    n_an = int((res.anomalies != "normal").sum())
+    if a.show and n_an:
+        show_explanations(res, a.show)
     if a.only_anomalies:
         res = res[res.anomalies != "normal"]
     res.to_csv(a.out, index=False)
-    n_an = int((res.anomalies != "normal").sum())
-    print(f"model: {CFG['model']} | house: {hid} | {len(res)} rows written to {a.out}, {n_an} anomalous")
+    print(f"\nmodel: {CFG['model']} | house: {hid} | {len(res)} rows written to {a.out}, {n_an} anomalous")
     if CFG.get("disabled_labels"):
         print("not detected in single-house mode:", ", ".join(CFG["disabled_labels"]))
     if n_an:
         print(res[res.anomalies != "normal"].groupby("anomalies").size().rename("steps (15 min)").to_string())
+
+
+def show_explanations(res, n):
+    """print one block per alarm episode (consecutive steps with the same anomalies): when, what, how sure, why."""
+    an = res.anomalies.to_numpy()
+    starts = [i for i in range(len(res)) if an[i] != "normal" and (i == 0 or an[i - 1] != an[i])]
+    print(f"\n=== {len(starts)} alarm episodes; explanation of the first {min(n, len(starts))} "
+          f"(SHAP = exact contribution of each feature, LIME = local second opinion) ===")
+    for k, i in enumerate(starts[:n], 1):
+        j = i
+        while j + 1 < len(res) and an[j + 1] == an[i]:
+            j += 1
+        r = res.iloc[i]
+        print(f"\n[{k}] {r.timestamp} -> {res.timestamp.iat[j]}  ({j - i + 1} steps)  {r.anomalies}  "
+              f"confidence {r.confidence:.2f}\n    category: {r.category}")
+        if isinstance(r.get("shap_top"), str) and r.shap_top:
+            for part in r.shap_top.split("; "):
+                print(f"    SHAP  {part}")
+        if isinstance(r.get("lime_top"), str) and r.lime_top:
+            for part in r.lime_top.split("; "):
+                print(f"    LIME  {part}")
+        print(f"    action: {str(r.agent_action)[:160]}")
 
 
 if __name__ == "__main__":
