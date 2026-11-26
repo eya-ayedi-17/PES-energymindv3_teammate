@@ -238,8 +238,8 @@ for i, l in enumerate(LABELS, start=1):
     pl = R[BEST]["per_label"][l]
     rows.append([l.replace("_", " "), f0, f"{pl['f1']:.2f}", f"{pl['precision']:.2f}", f"{pl['recall']:.2f}"])
     if off0 or (R[BEST]["per_label"][l]["f1"] - R0[BEST]["per_label"][l]["f1"]) > 0.05:
-        ext.append(("BACKGROUND", (0, i), (-1, i), LIGHT))
-S.append(KeepTogether([Paragraph(f"Per anomaly type, {NAME[BEST]} (highlighted: the types that change):", s_b),
+        ext.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#FFE9A8")))      # clearly different from the zebra rows
+S.append(KeepTogether([Paragraph(f"Per anomaly type, {NAME[BEST]} (yellow rows: the types that change with the references):", s_b),
                        table(rows, [60 * mm, 36 * mm, 36 * mm, 19 * mm, 19 * mm], extra=ext, num_from=1, valign="MIDDLE")]))
 S.append(Paragraph("The types that improve are exactly those the references can see: shading (production vs theory), drift and "
                    "current bias (ratio between the two meters: a jump for a bias, a ramp for a drift), under-reporting (large step "
