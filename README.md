@@ -99,6 +99,12 @@ All 14 types are detected. Without the two reference inputs, XGBoost reaches a m
 - **LIME** is a second, model-independent opinion. On correctly detected test rows, 2.0 of SHAP's top-5 features are also in LIME's top 5, and both name the same first feature in 56 % of rows (100 % for battery charge failure, replay, under-report, undervoltage, frozen meter and voltage sensor fault). Agreement is lower when several features carry the same information. **Trust SHAP first, use LIME as a second opinion.**
 - Global SHAP per anomaly type and the full comparison: [`reports/explainability.md`](reports/explainability.md).
 
+## Extra analyses: relations between the anomaly types
+
+- **Spearman between the true labels**: the anomaly types are almost independent (90 of 91 pairs have |rho| < 0.05; 58 pairs never overlap). The only coupling is localized grid outage ↔ battery discharge failure (+0.14, injected on purpose). It comes from the injection plan, not from physics. Matrix and figure: [`reports/figures/anomaly_spearman.png`](reports/figures/anomaly_spearman.png), [`reports/anomaly_spearman_labels.csv`](reports/anomaly_spearman_labels.csv).
+- **Confusion matrix of the XGBoost model** (test): the main confusions are current bias → drift (13.7 % of the bias steps), PV shading → voltage sensor fault (19.5 %) and battery discharge failure → grid outage (12.3 %). [`reports/anomaly_confusion_true_vs_predicted.csv`](reports/anomaly_confusion_true_vs_predicted.csv).
+- **What was tried to exploit them** ([`confusion_exploitation.md`](reports/confusion_exploitation.md), [`label_structure_exploitation.md`](reports/label_structure_exploitation.md)): a specialist classifier for bias vs drift gives +0.0006 macro F1 (noise, not integrated); exclusion and coupling rules from the label correlations give −0.0014 and 0.0000 (not used). The one useful idea is a **family** alert, "meter gain error (bias or drift)": the precision for drift goes from 0.72 to 0.96. It is **not yet in the detector output**: a possible next step for the platform.
+
 ## Repository
 
 ```

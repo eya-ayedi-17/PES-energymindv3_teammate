@@ -153,6 +153,10 @@ type_rows = "\n".join(f"| {r.anomaly} | {r.category} | {'PV + battery houses' if
     python predict.py --house-file 1_data_with_anomalies/houses/house_04.csv --transformer-file 1_data_with_anomalies/transformer.csv --refs-file 4_reference_inputs/house_04.csv --out result.csv
     ```
     and its output can be compared with `2_labels/labels_test.csv` (rows of that house, `split = test`).
+
+    ## Sources and license
+
+    Built on the SimBench rural low-voltage network LV1.101 (ODbL), with household consumption from WPuQ (Schlemminger et al., Scientific Data 2022, CC BY 4.0) and appliance profiles from AMPds2 (Makonin et al., Scientific Data 2016, CC BY 4.0), adapted to Tunisian conditions. The anomalies, the second meter and the roof sensor are simulated (see the injection report). Data: ODbL. Code and reports: https://github.com/azert88/energymind-tunisia (MIT).
     """).replace("@@CAL@@", cal_rows).replace("@@TYPES@@", type_rows), encoding="utf-8")
 shutil.copy(V3 / "reports" / "EnergyMind_anomaly_injection_method.pdf", OUT / "EnergyMind_anomaly_injection_method.pdf")
 z = shutil.make_archive(str(OUT), "zip", root_dir=OUT.parent, base_dir=OUT.name)
