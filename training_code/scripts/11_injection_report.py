@@ -275,6 +275,7 @@ S.append(code('''
 python energymind_v3/scripts/01_build_physical_baseline.py   # clean year: dispatch + SimBench power flow + meters
 python energymind_v3/scripts/02_inject.py                    # schedule and inject the 492 events
 python energymind_v3/scripts/03_validate_injection.py        # physics checks + example figures
+python energymind_v3/scripts/17_make_references.py           # reference inputs (second meter, roof sensor), section 11
 ''', "commands"))
 S.append(Spacer(1, 4))
 S.append(table([
@@ -286,6 +287,26 @@ S.append(table([
     ["events.csv / events.json", "Catalogue of the 492 events: type, houses, start, end, parameters, Tunisian cause, split"],
     ["truth/house_XX.parquet", "True physical values during the events (validation only)"]],
     [55 * mm, 115 * mm]))
+
+S.append(Paragraph("11. Reference inputs built from the injected data", s_h))
+S.append(Paragraph("The final detector also reads two reference inputs: a <b>second meter</b> and a <b>roof sensor</b> (see the "
+                   "benchmark and data-sources reports). They are derived from the true values the simulation already stored; "
+                   "<b>the injection, the events and the labels were not regenerated</b> to build them "
+                   "(<font name='M'>17_make_references.py</font>, <font name='M'>refs_lib.py</font>, files "
+                   "<font name='M'>data/05_references/house_XX.csv</font>, fixed seed).", s_b))
+S.append(table([
+    ["Reference input", "Houses", "Computed from", "Degraded to (assumed device accuracy)"],
+    ["check_meter_energy_kwh (second meter)", "all 13", "true grid power <font name='M'>truth/P_grid_true_W</font>, kWh per 15 min",
+     "own gain ±1 %, noise 0.3 %. It reads the true energy, so it is not fooled by the faults of the house meter"],
+    ["irradiance_w_m2 (roof reference cell)", "4 PV houses", "PV available without shading <font name='M'>physical/pv_avail_W</font>, inverted with the Phase 1 PV "
+     "formula P = poa/1000 (1 − 0.004 (T_cell − 25)) × 0.82 × kWp", "calibration ±2 %, noise 1 %, offset 1 W/m² (about ±3 %)"],
+    ["module_temp_c (back-of-module sensor)", "4 PV houses", "T_cell = T_amb + 0.03 poa with the Tunis monthly climatology", "offset ±0.5 °C, noise 0.3 °C"]],
+    [48 * mm, 20 * mm, 56 * mm, 46 * mm]))
+S.append(Spacer(1, 3))
+S.append(Paragraph("The recovered irradiance is realistic (about 950 W/m² at noon in summer, 330 to 420 in winter) and agrees between the four PV "
+                   "houses within 1.7 %, as they share one weather. These inputs are an assumption about two devices to install, not a "
+                   "measurement: the detection scores for bias, drift and shading hold only if real devices reach this accuracy and are "
+                   "independent of the house meter.", s_b))
 
 
 footer = footer_fn("EnergyMind Tunisia · Anomaly injection method")
