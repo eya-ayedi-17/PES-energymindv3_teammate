@@ -17,6 +17,14 @@ import pandas as pd
 
 # plain-language meaning of the feature families (prefix -> text)
 FEATURE_TEXT = [
+    ("ref_meter_lr_abs", "size of the gap between the house meter and the second meter (24 h)"),
+    ("ref_meter_lr_24h_vs", "change of the house-meter / second-meter gap vs earlier days"),
+    ("ref_meter_lr", "gap between the house meter and the second meter (log ratio of their energies)"),
+    ("ref_pv_ratio_vs_prev", "solar production vs theory, compared with the same hours on the previous days"),
+    ("ref_pv_ratio", "solar production vs the theoretical production from the roof sensor"),
+    ("ref_pv_theory", "theoretical solar production from the roof sensor (irradiance, module temperature)"),
+    ("ref_irr", "irradiance measured by the roof sensor"),
+    ("ref_module_temp", "module temperature measured by the roof sensor"),
     ("hist_P_logratio", "meter power vs its usual level at this hour (last 14 days)"),
     ("hist_P_step", "sudden step of the meter power vs its usual level"),
     ("hist_P_ref_W", "usual power of this house at this hour"),

@@ -1,5 +1,6 @@
-"""Step 10 - Benchmark report (PDF) of the SINGLE-HOUSE models (one house + transformer), with the 13-house
-models as reference. Best model chosen on VALIDATION.
+"""Step 10 - Benchmark report (PDF) of the FINAL single-house models (one house + transformer + the two reference inputs:
+second meter, roof sensor), compared with the same models without the references and with the 13-house models.
+Best model chosen on VALIDATION.
 Output: reports/EnergyMind_model_benchmark.pdf, reports/benchmark_single_house.csv, reports/figures/bench_*.png
 Usage : python 10_benchmark_report.py
 """
@@ -26,12 +27,14 @@ ALGOS = ["xgboost", "lightgbm", "random_forest", "hist_gb", "mlp", "extra_trees"
 NAME = {"xgboost": "XGBoost", "hist_gb": "HistGradientBoosting", "random_forest": "Random Forest", "lightgbm": "LightGBM",
         "mlp": "MLP (neural net)", "extra_trees": "Extra Trees"}
 SHORT = {"xgboost": "XGB", "hist_gb": "HistGB", "random_forest": "RF", "lightgbm": "LGBM", "mlp": "MLP", "extra_trees": "ExtraT"}
-R = {a: json.loads((MODELS / "single_house" / f"{a}_results.json").read_text()) for a in ALGOS}
+SH = MODELS / "single_house_refs"                    # final: one house + transformer + reference inputs
+R = {a: json.loads((SH / f"{a}_results.json").read_text()) for a in ALGOS}
+R0 = {a: json.loads((MODELS / "single_house" / f"{a}_results.json").read_text()) for a in ALGOS}      # without references
 R13 = {a: json.loads((MODELS / "single" / f"{a}_results.json").read_text()) for a in ALGOS}
-BEST = json.loads((MODELS / "single_house" / "best_model.json").read_text())["model"]
+BEST = json.loads((SH / "best_model.json").read_text())["model"]
 ORDER = sorted(ALGOS, key=lambda a: -R[a]["overall"]["val_macro_f1"])
 o = {a: R[a]["overall"] for a in ALGOS}
-NF = len(joblib.load(MODELS / "single_house" / f"{BEST}.joblib")["features"])
+NF = len(joblib.load(SH / f"{BEST}.joblib")["features"])
 DIS = R[BEST]["disabled_labels"]                     # disabled types of the recommended model
 DIS_ANY = sorted({l for a in ALGOS for l in R[a]["disabled_labels"]})
 
@@ -44,6 +47,7 @@ for a in ORDER:
                  "event_recall": x["event_recall_macro"], "event_precision": x["event_precision_macro"], "false_alarms_per_house_day": x["false_alarms_per_house_day"],
                  "real_vs_sensor_acc": x["event_vs_sensor_acc"], "two_label_exact": x["subset_accuracy_2labels"],
                  "fit_seconds": x["fit_seconds"], "test_macro_f1_13_houses": R13[a]["overall"]["macro_f1"],
+                 "test_macro_f1_without_references": R0[a]["overall"]["macro_f1"],
                  **{f"f1_{l}": R[a]["per_label"][l]["f1"] for l in LABELS}})
 pd.DataFrame(rows).round(4).to_csv(REPORTS / "benchmark_single_house.csv", index=False)
 
@@ -91,29 +95,36 @@ def cell(v, r, c):
 S = []
 b = o[BEST]
 S.append(Paragraph("EnergyMind Tunisia: anomaly-detection model benchmark", s_title))
-S.append(Paragraph("Six machine-learning models, each using ONE house and its transformer measurements "
-                   "(no neighbouring houses), on the simulated Tunisian low-voltage network", s_sub))
+S.append(Paragraph("Six machine-learning models, each using ONE house, its transformer measurements and two reference inputs "
+                   "(a second meter and a roof irradiance / temperature sensor), on the simulated Tunisian low-voltage network", s_sub))
 S.append(box(f"<b>Result.</b> <b>{NAME[BEST]}</b> is the recommended model (best validation macro F1, "
              f"{b['val_macro_f1']:.3f}). On the untouched test set it finds {b['detect_recall']*100:.1f} % of the anomalous "
              f"time steps with {b['detect_precision']*100:.1f} % precision, names the right anomaly type with a macro F1 of "
              f"{b['macro_f1']:.3f}, and raises {b['false_alarms_per_house_day']:.3f} false alarms per house-day "
              f"(one every {1 / max(b['false_alarms_per_house_day'], 1e-9):.0f} days per house). "
              + (f"Disabled in this mode: {', '.join(DIS)} (cannot be separated on validation). " if DIS else "")
-             + "Features that relied on simulator truth were removed after a leakage audit (section 8); "
-               "all scores come from simulated data."))
+             + f"Without the two reference inputs the best model reaches a macro F1 of {R0[BEST]['overall']['macro_f1']:.3f} and "
+               f"cannot detect {', '.join(t.replace('_', ' ') for t in R0[BEST]['disabled_labels'])} (section 7). "
+               "Features that relied on simulator truth were removed after a leakage audit (section 9); "
+               "all scores come from simulated data, and the reference inputs are simulated from true values with an assumed accuracy."))
 
 S.append(Paragraph("1. Test setup", s_h))
 for t in ["<b>Input of every model:</b> one house (smart meter: U, I, P, Q, S, PF per phase; PV, battery and "
-          f"inverter values for PV houses) and the transformer measurements: {', '.join(TRAFO_COLS_SINGLE)}. "
+          f"inverter values for PV houses), the transformer measurements ({', '.join(TRAFO_COLS_SINGLE)}) and two reference "
+          "inputs: a <b>second meter</b> (energy per 15 min, every house; an independent class-1 device) and, for PV houses, a "
+          "<b>roof sensor</b> (irradiance in the plane of the panels, about ±3 %, and module temperature, ±0.5 °C). "
           f"From these, {NF} features are computed for each 15-minute step. No data from other houses is used, and no "
-          "appliance-level data: the house's normal level comes from its own history (same time of day over the previous "
-          "14 days) and from its share of the transformer's monitored group.",
+          "appliance-level data: the house's normal level comes from its own history and from its share of the transformer's "
+          "monitored group.",
           "<b>Data:</b> 13 simulated houses (4 with PV + LFP battery) on one 160 kVA transformer, SimBench LV1.101 rural "
           "network, year 2018, 15 minutes: 455,520 house-time steps; 14 anomaly types injected (492 events, 22.7 % of steps).",
           "<b>Split:</b> 26 blocks of 14 days fixed before injection. Training 18 blocks, validation blocks 6, 12, 19, 24, "
           "test blocks 3, 9, 16, 22. No event crosses two splits.",
           "<b>Training:</b> normal steps reduced to 1:1, rare types up-weighted (cap 25×); one multi-class model (normal + 14 "
           "types); one decision threshold per type, tuned on validation. Same settings as the 13-house benchmark.",
+          "<b>Reference inputs:</b> computed from the true values the simulator stored (true grid energy; PV available without "
+          "shading, inverted to irradiance and temperature) and degraded to the accuracy of the devices; the anomalies and "
+          "labels were not regenerated.",
           f"<b>Disabled types:</b> a type is switched off when its validation PR-AUC is below 0.5 (it would only raise false "
           f"alarms). Recommended model: {', '.join(DIS) or 'none'}"
           + (f"; some other models also disable {', '.join(sorted(set(DIS_ANY) - set(DIS)))}" if set(DIS_ANY) - set(DIS) else "") + ".",
@@ -132,7 +143,7 @@ S.append(table([
     ["Real vs sensor", "On anomalous steps: does the model say correctly whether it is a real event or a measurement problem?"],
     ["2-label exact", "On steps with two simultaneous anomalies: are both found, and nothing else?"]], [50 * mm, 120 * mm]))
 
-S.append(Paragraph("3. Overall results (one house + transformer)", s_h))
+S.append(Paragraph("3. Overall results (one house + transformer + reference inputs)", s_h))
 rows = [["Model", "Macro F1 (val)", "Macro F1 (test)", "Detect. precision", "Detect. recall", "Detect. F1", "Event recall",
          "Event precision", "False alarms / house-day", "Real vs sensor", "Train time (s)"]]
 for a in ORDER:
@@ -206,11 +217,39 @@ S.append(KeepTogether([Paragraph(f"6. Detail of the recommended model: {NAME[BES
                        Paragraph("Events are counted per house. Median detection delay is 0 h: when an event is detected, its first "
                                  "observable step is already flagged.", s_cap)]))
 
-S.append(Paragraph("7. One house + transformer vs all 13 houses", s_h))
-S.append(Paragraph("The same six models were first trained with all 13 houses (each house compared with its neighbours). "
-                   "The table shows what changes when only one house and the transformer are available.", s_b))
-rows = [["Model", "Macro F1 13 houses", "Macro F1 one house", "Detect. F1 13 houses", "Detect. F1 one house",
-         "False alarms / day 13 houses", "False alarms / day one house"]]
+S.append(Paragraph("7. Effect of the two reference inputs", s_h))
+S.append(Paragraph("With one house and its transformer only, a slow or constant error of the meter (drift, bias) and a loss of solar "
+                   "production (shading) are invisible: they are consistent with the house's own signal and look like normal "
+                   "variations or a cloudy day. The second meter gives an independent measurement of the same energy, and the roof "
+                   "sensor gives the production the panels should deliver. The same six models were trained without and with them:", s_b))
+rows = [["Model", "Macro F1 without", "Macro F1 with", "Detect. recall without", "Detect. recall with", "Event recall without",
+         "Event recall with", "Types disabled without"]]
+for a in ORDER:
+    r0, r1 = R0[a]["overall"], o[a]
+    rows.append([NAME[a], f"{r0['macro_f1']:.3f}", f"{r1['macro_f1']:.3f}", f"{r0['detect_recall']:.3f}", f"{r1['detect_recall']:.3f}",
+                 f"{r0['event_recall_macro']:.3f}", f"{r1['event_recall_macro']:.3f}", str(len(R0[a]["disabled_labels"]))])
+S.append(table(rows, [34 * mm] + [19.4 * mm] * 7, num_from=1, valign="MIDDLE"))
+S.append(Spacer(1, 4))
+rows = [["Anomaly type", "F1 without references", "F1 with references", "Precision", "Recall"]]
+ext = []
+for i, l in enumerate(LABELS, start=1):
+    off0 = l in R0[BEST]["disabled_labels"]
+    f0 = "disabled" if off0 else f"{R0[BEST]['per_label'][l]['f1']:.2f}"
+    pl = R[BEST]["per_label"][l]
+    rows.append([l.replace("_", " "), f0, f"{pl['f1']:.2f}", f"{pl['precision']:.2f}", f"{pl['recall']:.2f}"])
+    if off0 or (R[BEST]["per_label"][l]["f1"] - R0[BEST]["per_label"][l]["f1"]) > 0.05:
+        ext.append(("BACKGROUND", (0, i), (-1, i), LIGHT))
+S.append(KeepTogether([Paragraph(f"Per anomaly type, {NAME[BEST]} (highlighted: the types that change):", s_b),
+                       table(rows, [60 * mm, 36 * mm, 36 * mm, 19 * mm, 19 * mm], extra=ext, num_from=1, valign="MIDDLE")]))
+S.append(Paragraph("The types that improve are exactly those the references can see: shading (production vs theory), drift and "
+                   "current bias (ratio between the two meters: a jump for a bias, a ramp for a drift), under-reporting (large step "
+                   "of the ratio) and, to a lesser extent, meter noise and battery charge failures. The other types do not change.", s_b))
+
+S.append(Paragraph("8. One house vs all 13 houses", s_h))
+S.append(Paragraph("The same six models were also trained with all 13 houses (each house compared with its neighbours), "
+                   "without the reference inputs. The table compares them with the final one-house models.", s_b))
+rows = [["Model", "Macro F1 13 houses", "Macro F1 final", "Detect. F1 13 houses", "Detect. F1 final",
+         "False alarms / day 13 houses", "False alarms / day final"]]
 for a in ORDER:
     r13, r1 = R13[a]["overall"], o[a]
     rows.append([NAME[a], f"{r13['macro_f1']:.3f}", f"{r1['macro_f1']:.3f}", f"{r13['detect_f1']:.3f}", f"{r1['detect_f1']:.3f}",
@@ -218,17 +257,18 @@ for a in ORDER:
 S.append(table(rows, [34 * mm] + [22.6 * mm] * 6, num_from=1, valign="MIDDLE"))
 S.append(Spacer(1, 3))
 S.append(Paragraph("Caution: the 13-house models still use the exact appliance sum and the S vs P, Q checks that the leakage "
-                   "audit removed (section 8), so part of their advantage comes from simulator truth. Without neighbours, "
-                   "PV partial shading can no longer be told apart from a cloudy day.", s_b))
+                   "audit removed (section 9), so part of their score comes from simulator truth. The final one-house models "
+                   "need only one house, its transformer and two inexpensive devices, and use no simulator truth.", s_b))
 
 LA = pd.read_csv(REPORTS / "leakage_audit.csv")
 used, rem = LA[LA.feature_set.str.startswith("single")], LA[LA.feature_set.str.startswith("removed")]
-S.append(Paragraph("8. Leakage audit", s_h))
+S.append(Paragraph("9. Leakage audit", s_h))
 S.append(Paragraph("Every feature is tested ALONE against the normal rows, for every anomaly type (ROC-AUC on the test split; "
                    "<font name='M'>scripts/leakage_lib.py</font>, <font name='M'>14_leakage_audit.py</font>). AUC of 0.99 or more "
                    "is flagged: expected when the anomaly is defined by that signal (outage and zero voltage, dropout and missing "
                    "data, frozen and repeated values, replay and a copy of the day before, undervoltage and low transformer "
-                   "voltage, overload and transformer loading), suspect otherwise.", s_b))
+                   "voltage, overload and transformer loading; the second meter for faults of the house meter, the roof sensor for "
+                   "shading), suspect otherwise.", s_b))
 rows = [["Feature set", "Flagged pairs", "Expected", "Low coverage", "Suspect"]]
 for nm, g in (("Used by the models", used), ("Removed (simulator truth)", rem)):
     rows.append([nm, str(len(g)), str(int((g.verdict == "expected").sum())), str(int((g.verdict == "low coverage").sum())),
@@ -245,18 +285,21 @@ for t in ["<b>Exact appliance sum</b> (<font name='M'>P_residual_*</font>, <font
           "this is expected, because the injected overloads come from unmetered loads (illegal connections, unmetered AC "
           "demand), which the transformer sees and no meter does. It is the energy-balance signal STEG would use.",
           "<b>PV reference</b>: the clear-sky envelope used a centred window, i.e. future days. Changed to past days only, so the "
-          "same features can be computed on streaming data."]:
+          "same features can be computed on streaming data.",
+          "<b>Reference features</b> (<font name='M'>ref_*</font>): the ratio of the two meters separates under-reporting, and the "
+          "measured / theoretical PV ratio separates shading, by design (marked expected). Bias and drift are NOT separated by "
+          "any single feature (AUC below 0.99): the model needs the level of the ratio, its jump and its trend together."]:
     S.append(Paragraph(t, s_bul, bulletText="•"))
 
 XA = pd.read_csv(REPORTS / "xai_lime_vs_shap.csv")
 xm = (REPORTS / "explainability.md").read_text(encoding="utf-8")
 xalgo = xm.splitlines()[0].split("single-house ")[1].split(" model")[0] if "single-house " in xm.splitlines()[0] else BEST
-S.append(Paragraph("8b. Explanations: SHAP and LIME", s_h))
-S.append(Paragraph(f"Every detection of the {NAME.get(xalgo, xalgo)} model can be explained (<font name='M'>scripts/explain_lib.py</font>, "
-                   "<font name='M'>detector.py --explain --lime N</font>). <b>SHAP</b> (TreeSHAP, computed by the tree library) gives "
+S.append(Paragraph("9b. Explanations: SHAP and LIME", s_h))
+S.append(Paragraph(f"Every detection of the {NAME.get(xalgo, xalgo)} model, the one shared with the platform team, can be explained (<font name='M'>scripts/explain_lib.py</font>, "
+                   "printed by <font name='M'>detector.py</font> for the first alarm episodes). <b>SHAP</b> (TreeSHAP, computed by the tree library) gives "
                    "the exact contribution of each feature to the detected type; it matches the <font name='M'>shap</font> package "
                    "exactly and the contributions add up to the model output. <b>LIME</b> fits a local linear model on perturbed "
-                   "copies of the row and is used as a model-independent second opinion.", s_b))
+                   "copies of the row and is used as a model-independent second opinion. LightGBM, the validation winner, offers the same native TreeSHAP.", s_b))
 S.append(Image(str(FIGS / "xai_shap_top.png"), width=165 * mm, height=165 * mm * 2.0 * 5 / 11))
 S.append(Paragraph("Figure 3. Global SHAP: the five features that push the model most towards each anomaly type, on the test "
                    "rows that truly have it.", s_cap))
@@ -269,8 +312,12 @@ S.append(KeepTogether([table(rows, [60 * mm, 20 * mm, 50 * mm, 40 * mm], num_fro
                                  "It is lower when several features carry the same information (the voltage features of an "
                                  "outage or a dropout). Details: reports/explainability.md.", s_cap)]))
 
-S.append(Paragraph("9. Limits of this benchmark", s_h))
+S.append(Paragraph("10. Limits of this benchmark", s_h))
 for t in ["All data are simulated (one network, one year). Real data will be noisier.",
+          "The two reference inputs are simulated: computed from true values and degraded to an assumed accuracy (second meter "
+          "±1 %, irradiance about ±3 %, temperature ±0.5 °C). The scores for bias, drift and shading hold only if real devices "
+          "reach this accuracy, are installed where they cannot be fooled (a bypass upstream of both meters fools both; a "
+          "sensor soiled like the panels hides soiling), and are read at the same 15-minute timestamps.",
           "Some anomaly types stay separable by a single signal because they are defined by it (see the leakage audit); "
           "their scores near 1.00 measure the injection, not a hard detection problem.",
           "The models need at least 28 days of history of a house before their features are complete.",
@@ -279,17 +326,18 @@ for t in ["All data are simulated (one network, one year). Real data will be noi
           "below about 0.01 are not significant."]:
     S.append(Paragraph(t, s_bul, bulletText="•"))
 
-S.append(Paragraph("10. Files", s_h))
-S.append(Paragraph("Models and results: <font name='M'>models/single_house/</font> (<font name='M'>&lt;model&gt;.joblib</font>, "
+S.append(Paragraph("11. Files", s_h))
+S.append(Paragraph("Final models and results: <font name='M'>models/single_house_refs/</font> (<font name='M'>&lt;model&gt;.joblib</font>, "
                    "<font name='M'>&lt;model&gt;_results.json</font>, <font name='M'>best_model.json</font>). Table: "
                    "<font name='M'>reports/benchmark_single_house.csv</font>, <font name='M'>reports/baselines.csv</font>, "
                    "<font name='M'>reports/leakage_audit.csv</font>. Training: <font name='M'>scripts/05b_single_house_model.py</font>, "
-                   "baselines: <font name='M'>05c_baselines.py</font>. "
+                   "baselines: <font name='M'>05c_baselines.py</font>; reference inputs: <font name='M'>data/05_references/</font> "
+                   "(<font name='M'>17_make_references.py</font>); models without references: <font name='M'>models/single_house/</font>. "
                    "Test a model: <font name='M'>detector/test_anomaly.py --model single_house_&lt;model&gt;</font>.", s_b))
 
 out = REPORTS / "EnergyMind_model_benchmark.pdf"
 SimpleDocTemplate(str(out), pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm, topMargin=16 * mm, bottomMargin=18 * mm,
                   title="EnergyMind Tunisia: model benchmark", author="EnergyMind").build(
-    S, onFirstPage=footer_fn("EnergyMind Tunisia · Model benchmark (one house + transformer)"),
-    onLaterPages=footer_fn("EnergyMind Tunisia · Model benchmark (one house + transformer)"))
+    S, onFirstPage=footer_fn("EnergyMind Tunisia · Model benchmark (one house + transformer + reference inputs)"),
+    onLaterPages=footer_fn("EnergyMind Tunisia · Model benchmark (one house + transformer + reference inputs)"))
 print("ok", out, "| best:", BEST)

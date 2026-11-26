@@ -27,10 +27,11 @@ from explain_lib import LimeExplainer, describe, shap_contributions, top_shap
 from report_style import MPL_FONT
 
 warnings.filterwarnings("ignore")
-ALGO = sys.argv[1] if len(sys.argv) > 1 else json.loads((MODELS / "single_house" / "best_model.json").read_text())["model"]
-b = joblib.load(MODELS / "single_house" / f"{ALGO}.joblib")
-model, feats, th, disabled = b["model"], b["features"], np.asarray(b["thresholds"]), b.get("disabled_labels", [])
 m05b = importlib.import_module("05b_single_house_model")
+SH = m05b.OUT                                            # models/single_house_refs (final) unless --no-refs
+ALGO = ([x for x in sys.argv[1:] if not x.startswith("--")] or [json.loads((SH / "best_model.json").read_text())["model"]])[0]
+b = joblib.load(SH / f"{ALGO}.joblib")
+model, feats, th, disabled = b["model"], b["features"], np.asarray(b["thresholds"]), b.get("disabled_labels", [])
 _, train, _, te = m05b.build_data()
 X = b["prep"].transform(te[feats].to_numpy(np.float32))
 Y = te[LABELS].to_numpy()

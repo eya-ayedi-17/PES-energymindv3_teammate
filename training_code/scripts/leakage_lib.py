@@ -17,9 +17,17 @@ import pandas as pd
 EXPECTED = {
     "localized_grid_outage": ("U_", "grid_available", "meter_", "P_TOT", "I_sum", "S_TOT", "Q_TOT", "PF_", "hist_P_",
                               "house_share", "rest_of_group", "backup_", "transfer_switch", "unmet_", "inverter_"),
+    # reference inputs: the second meter reads the TRUE energy, so its ratio to the house meter separates every fault
+    # of the house meter by design; the roof sensor gives the production the panels should deliver (shading, charge failure)
     "meter_dropout": ("meter_missing", "meter_n_missing"),
-    "meter_frozen": ("meter_repeat", "P_TOT_repeat", "U_repeat"),
-    "falsified_replay": ("meter_lag96", "U_lag96", "P_TOT_lag96"),
+    "meter_frozen": ("meter_repeat", "P_TOT_repeat", "U_repeat", "ref_meter_"),
+    "falsified_replay": ("meter_lag96", "U_lag96", "P_TOT_lag96", "ref_meter_"),
+    "falsified_under_report": ("ref_meter_", "hist_"),
+    "meter_bias_current": ("ref_meter_",),
+    "meter_drift": ("ref_meter_",),
+    "meter_noise": ("ref_meter_", "PF_", "P_TOT_rough"),
+    "pv_partial_shading": ("ref_pv_", "ref_irr"),
+    "battery_charge_failure": ("ref_pv_", "pv_", "curtail", "charge_"),
     "sustained_undervoltage": ("transformer_U", "U_"),
     # an overloaded transformer lowers every voltage; the overload load is UNMETERED (illegal connections), so it
     # appears as transformer power that no meter explains (monitored-group power, energy-balance gap)

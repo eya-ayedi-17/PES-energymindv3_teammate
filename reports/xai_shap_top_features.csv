@@ -1,89 +1,113 @@
 anomaly,rank,feature,mean_shap,meaning
-localized_grid_outage,1,grid_available,4.6954,grid (STEG) available
-localized_grid_outage,2,U_zero,0.785,no voltage at the meter
-localized_grid_outage,3,unmet_backup_demand_w,0.4786,backup demand not served
-localized_grid_outage,4,unmet_ratio,0.1738,backup demand not served
-localized_grid_outage,5,dP_PV,0.1418,change of solar production
-localized_grid_outage,6,U_pu_minus_med96,0.0835,house voltage vs its recent level
-localized_grid_outage,7,soc_delta_4,0.0697,battery state of charge change
-localized_grid_outage,8,soc_flat_run,0.0558,battery state of charge change
-sustained_undervoltage,1,transformer_U_dev_med96,3.1546,transformer low-voltage side voltage
-sustained_undervoltage,2,transformer_U_pu,2.1508,transformer low-voltage side voltage
-sustained_undervoltage,3,U_pu_minus_med96,0.4395,house voltage vs its recent level
-sustained_undervoltage,4,U_max_pu,0.0631,house voltage
-sustained_undervoltage,5,PF_min_phase,0.0617,power factor
-sustained_undervoltage,6,U_pu_minus_med672,0.0528,house voltage vs its recent level
-sustained_undervoltage,7,transformer_loading_percent,0.0507,transformer loading
-sustained_undervoltage,8,hist_share_logratio_trend_288,0.0334,house share of the transformer's monitored group vs its usual share
-transformer_overload,1,rest_of_group_minus_med96,2.3628,power of the rest of the monitored group
-transformer_overload,2,trafo_loading_minus_med96,1.1027,transformer loading vs its recent level
-transformer_overload,3,group_P_minus_med96,1.0503,power of the monitored group under the transformer
-transformer_overload,4,rest_of_group_kw,0.8037,power of the rest of the monitored group
-transformer_overload,5,transformer_Q_kvar,0.192,transformer measurement
-transformer_overload,6,transformer_PF,0.1406,transformer measurement
-transformer_overload,7,transformer_loading_percent,0.0939,transformer loading
-transformer_overload,8,hist_P_logratio_mean_672,0.0509,meter power vs its usual level at this hour (last 14 days)
-battery_charge_failure,1,pv_cs_day_cv,2.3966,solar production vs clear-sky level
-battery_charge_failure,2,pv_clear_sky_std_8,1.2713,solar production vs clear-sky level
-battery_charge_failure,3,curtail_vs_clear_sky,0.643,solar power not used
-battery_charge_failure,4,soc_flat_run,0.5166,battery state of charge change
-battery_charge_failure,5,pv_expected_W,0.2049,solar production vs clear-sky level
-battery_charge_failure,6,P_PV_vs_kwp,0.1062,solar production
-battery_charge_failure,7,battery_charge_power_w,0.1021,battery charging power
-battery_charge_failure,8,battery_soc_percent,0.0982,battery state of charge
-battery_discharge_failure,1,grid_import_soc_high,1.8918,importing from the grid although the battery is charged
-battery_discharge_failure,2,inverter_ac_output_w,1.3161,inverter output / status
-battery_discharge_failure,3,P_TOT,0.134,meter active power
-battery_discharge_failure,4,unmet_ratio,0.1326,backup demand not served
-battery_discharge_failure,5,battery_soc_percent,0.0717,battery state of charge
-battery_discharge_failure,6,P_PV_W,0.0689,solar production
-battery_discharge_failure,7,pv_expected_W,0.0563,solar production vs clear-sky level
-battery_discharge_failure,8,S_TOT,0.0549,meter apparent power
-meter_frozen,1,meter_repeat_run,3.334,meter values repeated exactly
-meter_frozen,2,U_repeat_run,3.3136,voltage value repeated exactly
-meter_frozen,3,U_max_pu,0.3797,house voltage
-meter_frozen,4,P_TOT_repeat_run,0.2502,power value repeated exactly
-meter_frozen,5,U_pu,0.0921,house voltage
-meter_frozen,6,P_TOT,0.069,meter active power
-meter_frozen,7,U_min_pu,0.0654,house voltage
-meter_frozen,8,pv_clear_sky_mean_96_vs_672,0.0574,solar production vs clear-sky level
-meter_dropout,1,U_pu,5.8916,house voltage
-meter_dropout,2,U_min_pu,0.9412,house voltage
-meter_dropout,3,U_max_pu,0.3465,house voltage
-meter_dropout,4,U_1_pu,0.1577,house voltage
-meter_dropout,5,P_PV_W,0.0915,solar production
-meter_dropout,6,transformer_U_pu,0.0883,transformer low-voltage side voltage
-meter_dropout,7,battery_soc_percent,0.0846,battery state of charge
-meter_dropout,8,pv_clear_sky_mean_4,0.0844,solar production vs clear-sky level
-meter_noise,1,PF_TOT,1.6982,power factor
-meter_noise,2,PF_min_phase,0.8286,power factor
-meter_noise,3,P_TOT_repeat_run,0.3257,power value repeated exactly
-meter_noise,4,P_TOT,0.1229,meter active power
-meter_noise,5,S_TOT,0.1108,meter apparent power
-meter_noise,6,P_PV_vs_kwp,0.0909,solar production
-meter_noise,7,I_sum,0.0679,total current
-meter_noise,8,P_TOT_lag96_absdiff_rel,0.0534,power vs 24 h earlier
-voltage_sensor_fault,1,U_phase_spread,2.9337,spread between the 3 phase voltages
-voltage_sensor_fault,2,U_rel_trafo,0.6485,house voltage vs transformer voltage
-voltage_sensor_fault,3,U_phase_rel_trafo_min,0.557,phase voltage vs transformer voltage
-voltage_sensor_fault,4,U_max_pu,0.3114,house voltage
-voltage_sensor_fault,5,U_pu,0.3043,house voltage
-voltage_sensor_fault,6,hist_P_logratio_mean_672,0.134,meter power vs its usual level at this hour (last 14 days)
-voltage_sensor_fault,7,Q_TOT,0.1192,meter reactive power
-voltage_sensor_fault,8,U_1_pu,0.079,house voltage
-falsified_under_report,1,hist_share_logratio_mean_96,0.6722,house share of the transformer's monitored group vs its usual share
-falsified_under_report,2,hist_share_logratio_mean_672,0.6387,house share of the transformer's monitored group vs its usual share
-falsified_under_report,3,hist_P_logratio_mean_8,0.2453,meter power vs its usual level at this hour (last 14 days)
-falsified_under_report,4,hist_P_logratio_std_96,0.1942,meter power vs its usual level at this hour (last 14 days)
-falsified_under_report,5,hist_P_logratio_mean_96,0.154,meter power vs its usual level at this hour (last 14 days)
-falsified_under_report,6,hist_P_logratio_mean_672,0.1464,meter power vs its usual level at this hour (last 14 days)
-falsified_under_report,7,hist_P_logratio,0.0729,meter power vs its usual level at this hour (last 14 days)
-falsified_under_report,8,hist_P_logratio_std_8,0.0607,meter power vs its usual level at this hour (last 14 days)
-falsified_replay,1,meter_lag96_match,4.9369,readings identical to 24 h earlier
-falsified_replay,2,meter_lag96_match_run,0.926,readings identical to 24 h earlier
-falsified_replay,3,U_lag96_absdiff,0.8455,voltage vs 24 h earlier
-falsified_replay,4,U_rel_trafo,0.1298,house voltage vs transformer voltage
-falsified_replay,5,meter_lag96_match_frac_24h,0.0547,readings identical to 24 h earlier
-falsified_replay,6,transformer_U_pu,0.0516,transformer low-voltage side voltage
-falsified_replay,7,U_rel_trafo_minus_med672,0.0511,house voltage vs transformer voltage
-falsified_replay,8,U_1_rel_trafo,0.0234,house voltage
+localized_grid_outage,1,grid_available,4.0439,grid (STEG) available
+localized_grid_outage,2,unmet_backup_demand_w,0.656,backup demand not served
+localized_grid_outage,3,U_zero,0.5063,no voltage at the meter
+localized_grid_outage,4,U_1_rel_trafo,0.2011,house voltage
+localized_grid_outage,5,pv_clear_sky_mean_96,0.1222,solar production vs clear-sky level
+localized_grid_outage,6,unmet_ratio,0.1123,backup demand not served
+localized_grid_outage,7,dP_PV,0.1086,change of solar production
+localized_grid_outage,8,soc_delta_4,0.1029,battery state of charge change
+sustained_undervoltage,1,transformer_U_dev_med96,3.0354,transformer low-voltage side voltage
+sustained_undervoltage,2,transformer_U_pu,1.8358,transformer low-voltage side voltage
+sustained_undervoltage,3,U_pu_minus_med672,0.2145,house voltage vs its recent level
+sustained_undervoltage,4,U_pu_minus_med96,0.1671,house voltage vs its recent level
+sustained_undervoltage,5,ref_meter_lr_1h,0.0553,gap between the house meter and the second meter (log ratio of their energies)
+sustained_undervoltage,6,U_max_pu,0.0538,house voltage
+sustained_undervoltage,7,transformer_loading_percent,0.0486,transformer loading
+sustained_undervoltage,8,U_dev_vs_trafo_dev,0.0313,house voltage change vs transformer voltage change
+transformer_overload,1,rest_of_group_minus_med96,2.054,power of the rest of the monitored group
+transformer_overload,2,trafo_loading_minus_med96,1.1139,transformer loading vs its recent level
+transformer_overload,3,group_P_minus_med96,1.0559,power of the monitored group under the transformer
+transformer_overload,4,rest_of_group_kw,0.5343,power of the rest of the monitored group
+transformer_overload,5,transformer_Q_kvar,0.2088,transformer measurement
+transformer_overload,6,group_P_kw,0.1551,power of the monitored group under the transformer
+transformer_overload,7,ref_meter_lr_abs_24h,0.1477,size of the gap between the house meter and the second meter (24 h)
+transformer_overload,8,transformer_PF,0.1316,transformer measurement
+battery_charge_failure,1,ref_pv_ratio_mean_4,2.6461,solar production vs the theoretical production from the roof sensor
+battery_charge_failure,2,ref_pv_ratio_nc,1.5592,solar production vs the theoretical production from the roof sensor
+battery_charge_failure,3,ref_pv_ratio_vs_prev_days,0.4618,"solar production vs theory, compared with the same hours on the previous days"
+battery_charge_failure,4,ref_pv_ratio,0.3126,solar production vs the theoretical production from the roof sensor
+battery_charge_failure,5,ref_pv_ratio_med_96,0.25,solar production vs the theoretical production from the roof sensor
+battery_charge_failure,6,ref_pv_theory_w,0.1598,"theoretical solar production from the roof sensor (irradiance, module temperature)"
+battery_charge_failure,7,pv_clear_sky_std_8,0.0815,solar production vs clear-sky level
+battery_charge_failure,8,U_min_pu,0.0728,house voltage
+battery_discharge_failure,1,inverter_ac_output_w,1.5212,inverter output / status
+battery_discharge_failure,2,grid_import_soc_high,0.5703,importing from the grid although the battery is charged
+battery_discharge_failure,3,P_TOT,0.1115,meter active power
+battery_discharge_failure,4,hour_cos,0.0482,time of day
+battery_discharge_failure,5,P_PV_W,0.0473,solar production
+battery_discharge_failure,6,PF_min_phase,0.0451,power factor
+battery_discharge_failure,7,pv_clear_sky_std_8,0.0384,solar production vs clear-sky level
+battery_discharge_failure,8,Q_TOT,0.0346,meter reactive power
+pv_partial_shading,1,ref_pv_ratio_med_96,1.2118,solar production vs the theoretical production from the roof sensor
+pv_partial_shading,2,ref_pv_ratio,1.1159,solar production vs the theoretical production from the roof sensor
+pv_partial_shading,3,ref_pv_theory_w,0.8432,"theoretical solar production from the roof sensor (irradiance, module temperature)"
+pv_partial_shading,4,ref_pv_ratio_nc,0.4101,solar production vs the theoretical production from the roof sensor
+pv_partial_shading,5,P_PV_W,0.3058,solar production
+pv_partial_shading,6,ref_pv_ratio_vs_prev_days,0.2206,"solar production vs theory, compared with the same hours on the previous days"
+pv_partial_shading,7,ref_irr_w_m2,0.2126,irradiance measured by the roof sensor
+pv_partial_shading,8,ref_pv_ratio_mean_4,0.1416,solar production vs the theoretical production from the roof sensor
+meter_frozen,1,meter_repeat_run,4.5559,meter values repeated exactly
+meter_frozen,2,U_repeat_run,0.6909,voltage value repeated exactly
+meter_frozen,3,P_TOT_repeat_run,0.4878,power value repeated exactly
+meter_frozen,4,U_pu,0.4838,house voltage
+meter_frozen,5,P_TOT_rough_8,0.1144,roughness of the power curve
+meter_frozen,6,inverter_ac_output_w,0.1085,inverter output / status
+meter_frozen,7,pv_cs_day_median_3d,0.1071,solar production vs clear-sky level
+meter_frozen,8,P_TOT_std_4,0.1048,short-term variability of the power
+meter_dropout,1,U_pu,3.1868,house voltage
+meter_dropout,2,U_2_pu,2.0178,house voltage
+meter_dropout,3,U_min_pu,0.8705,house voltage
+meter_dropout,4,U_max_pu,0.3085,house voltage
+meter_dropout,5,ref_module_temp_c,0.1828,module temperature measured by the roof sensor
+meter_dropout,6,pv_expected_W,0.1716,solar production vs clear-sky level
+meter_dropout,7,U_1_pu,0.1518,house voltage
+meter_dropout,8,transformer_U_dev_med96,0.141,transformer low-voltage side voltage
+meter_drift,1,ref_meter_lr_24h_vs_1d,1.313,change of the house-meter / second-meter gap vs earlier days
+meter_drift,2,ref_meter_lr_abs_24h,0.8974,size of the gap between the house meter and the second meter (24 h)
+meter_drift,3,ref_meter_lr_1h,0.6498,gap between the house meter and the second meter (log ratio of their energies)
+meter_drift,4,ref_meter_lr_24h_vs_3d,0.3767,change of the house-meter / second-meter gap vs earlier days
+meter_drift,5,ref_meter_lr_24h,0.1348,gap between the house meter and the second meter (log ratio of their energies)
+meter_drift,6,meter_lag96_match_frac_24h,0.0401,readings identical to 24 h earlier
+meter_drift,7,P_TOT,0.026,meter active power
+meter_drift,8,hist_share_ref,0.0206,house share of the transformer's monitored group vs its usual share
+meter_noise,1,PF_TOT,0.9708,power factor
+meter_noise,2,PF_min_phase,0.4914,power factor
+meter_noise,3,ref_meter_lr_abs_24h,0.4049,size of the gap between the house meter and the second meter (24 h)
+meter_noise,4,ref_meter_lr_1h,0.3163,gap between the house meter and the second meter (log ratio of their energies)
+meter_noise,5,P_TOT_repeat_run,0.2851,power value repeated exactly
+meter_noise,6,ref_meter_lr_24h_vs_1d,0.2673,change of the house-meter / second-meter gap vs earlier days
+meter_noise,7,ref_meter_lr_24h,0.2453,gap between the house meter and the second meter (log ratio of their energies)
+meter_noise,8,ref_meter_lr_24h_vs_7d,0.1786,change of the house-meter / second-meter gap vs earlier days
+meter_bias_current,1,ref_meter_lr_abs_24h,1.1065,size of the gap between the house meter and the second meter (24 h)
+meter_bias_current,2,ref_meter_lr_24h_vs_1d,0.7405,change of the house-meter / second-meter gap vs earlier days
+meter_bias_current,3,meter_lag96_match_frac_24h,0.0367,readings identical to 24 h earlier
+meter_bias_current,4,P_TOT,0.0347,meter active power
+meter_bias_current,5,hist_share_ref,0.0319,house share of the transformer's monitored group vs its usual share
+meter_bias_current,6,S_TOT,0.0213,meter apparent power
+meter_bias_current,7,Q_TOT,0.0166,meter reactive power
+meter_bias_current,8,U_1_pu,0.016,house voltage
+voltage_sensor_fault,1,U_phase_spread,2.5355,spread between the 3 phase voltages
+voltage_sensor_fault,2,U_rel_trafo,0.8299,house voltage vs transformer voltage
+voltage_sensor_fault,3,ref_meter_lr_1h,0.2763,gap between the house meter and the second meter (log ratio of their energies)
+voltage_sensor_fault,4,U_pu,0.275,house voltage
+voltage_sensor_fault,5,U_phase_rel_trafo_min,0.2114,phase voltage vs transformer voltage
+voltage_sensor_fault,6,ref_meter_lr_24h,0.1802,gap between the house meter and the second meter (log ratio of their energies)
+voltage_sensor_fault,7,U_max_pu,0.1627,house voltage
+voltage_sensor_fault,8,ref_meter_lr_7d,0.1465,gap between the house meter and the second meter (log ratio of their energies)
+falsified_under_report,1,ref_meter_lr_1h,2.516,gap between the house meter and the second meter (log ratio of their energies)
+falsified_under_report,2,ref_meter_lr_24h,0.7791,gap between the house meter and the second meter (log ratio of their energies)
+falsified_under_report,3,ref_meter_lr_abs_24h,0.6396,size of the gap between the house meter and the second meter (24 h)
+falsified_under_report,4,U_rel_trafo,0.4241,house voltage vs transformer voltage
+falsified_under_report,5,U_phase_rel_trafo_max,0.2199,phase voltage vs transformer voltage
+falsified_under_report,6,ref_meter_lr_24h_vs_1d,0.1475,change of the house-meter / second-meter gap vs earlier days
+falsified_under_report,7,U_pu,0.1268,house voltage
+falsified_under_report,8,ref_meter_lr_24h_vs_7d,0.0718,change of the house-meter / second-meter gap vs earlier days
+falsified_replay,1,meter_lag96_match,3.899,readings identical to 24 h earlier
+falsified_replay,2,meter_lag96_match_run,1.951,readings identical to 24 h earlier
+falsified_replay,3,U_rel_trafo,0.3818,house voltage vs transformer voltage
+falsified_replay,4,U_lag96_absdiff,0.2536,voltage vs 24 h earlier
+falsified_replay,5,transformer_U_pu,0.1749,transformer low-voltage side voltage
+falsified_replay,6,U_rel_trafo_minus_med672,0.1463,house voltage vs transformer voltage
+falsified_replay,7,U_1_rel_trafo,0.0953,house voltage
+falsified_replay,8,U_phase_rel_trafo_min,0.0637,phase voltage vs transformer voltage

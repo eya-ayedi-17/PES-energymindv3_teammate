@@ -11,8 +11,10 @@ Examples
          --param factor=1.06 --param phases=["2"] --model single_house_lightgbm
   python test_anomaly.py --random 3          # 3 random scenarios
 
-Models: default = best single-house model (one house + transformer); single_house_<algo> with algo in
-xgboost, lightgbm, random_forest, extra_trees, hist_gb, mlp; or <algo> alone for the 13-house models.
+Models: default = final single-house model (one house + transformer + second meter + roof sensor; the two reference
+inputs are built from the injected scenario); single_house_<algo> with algo in xgboost, lightgbm, random_forest,
+extra_trees, hist_gb, mlp; single_house_norefs_<algo> without the reference inputs; <algo> alone = 13-house models.
+Pick a start date at least 28 days after 1 January (the features need the previous 28 days of the house).
 
 The injection uses the SAME physics engine as the training data (dispatch + SimBench power flow + meter model).
 Output: a timeline table in the terminal, tester_output/<name>.csv (all predictions of the window) and a PNG.
@@ -84,13 +86,30 @@ def run(events, model, tag, show_house, pad_h=6):
     t0 = time.time()
     base = load_base()
     meas, tm, labels, active, truth = apply_events(base, events, workers=1, verbose=False)
-    F = build_features(meas, tm)
     det = Detector(model)
+    if det.single_house:
+        # single-house models: each house is featurised on its own, with the two reference inputs of the final system
+        # (second meter = true grid energy; roof sensor = true irradiance / temperature), built like data/05_references
+        from features_lib import build_single_house_features
+        from refs_lib import roof_sensor, second_meter
+        rng_ref = np.random.default_rng(17)
+        refs = {}
+        for h in HOUSES:
+            r = pd.DataFrame({"timestamp": base["idx"].values,
+                              "check_meter_energy_kwh": second_meter(truth[h].P_grid_true_W.to_numpy(float), rng_ref)})
+            if h in TYPE_A:
+                r["irradiance_w_m2"], r["module_temp_c"], _ = roof_sensor(
+                    base["phys"][h].pv_avail_W.to_numpy(float), base["cfg"]["type_a_systems"][h]["pv_kwp"], base["idx"], rng_ref)
+            refs[h] = r
+        F = pd.concat([build_single_house_features(meas[h], tm, h, refs=refs[h] if det.use_refs else None) for h in HOUSES],
+                      ignore_index=True)
+    else:
+        F = build_features(meas, tm)
     s = min(e["start"] for e in events); e = max(e["end"] for e in events)
     a, b = max(0, s - pad_h * 4), min(35040, e + pad_h * 4)
     ts = base["idx"][a:b]
     win = F[F.timestamp.isin(ts)].reset_index(drop=True)
-    pred = det.predict(None, None, features=win)
+    pred = det.predict(None, None, features=win, explain=det.single_house, lime_episodes=3 if det.single_house else 0)
     lab = labels[labels.timestamp.isin(ts)].reset_index(drop=True)
     pred["true_anomalies"] = lab.anomalies.values
     hs = sorted({h for ev in events for h in ev["houses"]})
@@ -102,6 +121,9 @@ def run(events, model, tag, show_house, pad_h=6):
         print(f"injected: {ev['label']} on {', '.join(ev['houses']) if len(ev['houses']) < 13 else 'all 13 houses'} "
               f"{base['idx'][ev['start']]} -> {base['idx'][ev['end']-1]}  params={ev['params']}")
     in_win = pred.timestamp.between(base["idx"][s], base["idx"][e - 1])
+    if "shap_top" in pred:                                  # SHAP / LIME of the first alarm episodes on the injected houses
+        from detector import show_explanations
+        show_explanations(pred[pred.house_id.isin(hs)].reset_index(drop=True), 5)
     print("\nper house during the injected window (steps):")
     for h in hs[:13]:
         q = pred[(pred.house_id == h) & in_win]

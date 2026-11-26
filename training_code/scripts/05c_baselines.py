@@ -88,7 +88,7 @@ def main():
 
     # supervised single-house models, same detection metrics (from 05b)
     for a in ["xgboost", "lightgbm", "random_forest", "hist_gb", "mlp", "extra_trees"]:
-        p = MODELS / "single_house" / f"{a}_results.json"
+        p = m05b.OUT / f"{a}_results.json"
         if p.exists():
             o = json.loads(p.read_text())["overall"]
             res[f"supervised_{a}"] = {k: o.get(k) for k in ["detect_precision", "detect_recall", "detect_f1", "event_recall_macro",

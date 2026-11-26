@@ -1,21 +1,23 @@
 """EnergyMind - anomaly detector for ONE house (xgboost model, frozen weights), with SHAP / LIME explanations.
 
 Command line:
-    python predict.py --house-file my_house.csv --transformer-file my_trafo.csv [--out result.csv]
+    python predict.py --house-file my_house.csv --transformer-file my_trafo.csv --refs-file my_refs.csv [--out result.csv]
                       [--house-id house_07] [--pv-kwp 4.0] [--only-anomalies] [--lime 10] [--show 20] [--no-explain]
     SHAP (every anomalous row) and LIME (first 10 episodes) are always computed and printed for the first 20
     alarm episodes; they are also written to the shap_top / lime_top columns of the output file.
 Python:
     from predict import Detector
     det = Detector()
-    out = det.detect(house_df, trafo_df, house_id="house_07", explain=True)       # whole period
-    out = det.detect_latest(house_buffer, trafo_buffer, house_id="house_07")       # streaming: newest step only
+    out = det.detect(house_df, trafo_df, refs_df, house_id="house_07", explain=True)            # whole period
+    out = det.detect_latest(house_buf, trafo_buf, refs_buf, house_id="house_07")               # streaming: newest step only
 
 my_house.csv : timestamp + meter channels (U/I/P/Q/S/PF per phase, P/Q/S/PF_TOT), grid_available, and the
                PV/battery/inverter columns if the house has PV
 my_trafo.csv : timestamp, transformer_loading_percent, transformer_P_kw, transformer_Q_kvar, transformer_U_pu,
                other_feeders_P_kw
-Both files: one row every 15 minutes, the same timestamps, at least 28 days (MIN_HISTORY_STEPS).
+my_refs.csv  : timestamp, check_meter_energy_kwh (second meter, kWh per 15 min) and, for a PV house,
+               irradiance_w_m2 + module_temp_c (roof reference cell: irradiance in the plane of the panels, module temperature)
+All files: one row every 15 minutes, the same timestamps, at least 28 days (MIN_HISTORY_STEPS).
 """
 import argparse
 import json
@@ -57,15 +59,15 @@ class Detector:
     def _matrix(self, F):
         return F.reindex(columns=self.features).to_numpy(np.float32)   # missing PV columns -> NaN (grid-only house)
 
-    def detect(self, house: pd.DataFrame, trafo: pd.DataFrame, house_id="house", pv_kwp=None,
+    def detect(self, house: pd.DataFrame, trafo: pd.DataFrame, refs: pd.DataFrame, house_id="house", pv_kwp=None,
                explain=False, lime_episodes=0) -> pd.DataFrame:
-        F = build_single_house_features(house, trafo, house_id, pv_kwp=pv_kwp)
+        F = build_single_house_features(house, trafo, house_id, pv_kwp=pv_kwp, refs=refs)
         return self._score(F, explain, lime_episodes)
 
-    def detect_latest(self, house_buffer: pd.DataFrame, trafo_buffer: pd.DataFrame, house_id="house", pv_kwp=None,
-                      n_last=1, explain=True) -> pd.DataFrame:
+    def detect_latest(self, house_buffer: pd.DataFrame, trafo_buffer: pd.DataFrame, refs_buffer: pd.DataFrame,
+                      house_id="house", pv_kwp=None, n_last=1, explain=True) -> pd.DataFrame:
         """Streaming: give the last MIN_HISTORY_STEPS (or more) raw readings, get the verdict of the newest n_last steps."""
-        F = latest_features(house_buffer, trafo_buffer, house_id, pv_kwp=pv_kwp, n_last=n_last)
+        F = latest_features(house_buffer, trafo_buffer, house_id, pv_kwp=pv_kwp, n_last=n_last, refs=refs_buffer)
         return self._score(F, explain, 0)
 
     def _score(self, F, explain, lime_episodes):
@@ -128,6 +130,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--house-file", required=True)
     ap.add_argument("--transformer-file", required=True)
+    ap.add_argument("--refs-file", required=True, help="reference inputs: second meter (+ roof sensor for a PV house)")
     ap.add_argument("--out", default="result.csv")
     ap.add_argument("--house-id", default=None, help="name used in the output (default: file name)")
     ap.add_argument("--pv-kwp", type=float, default=None, help="PV size; estimated from the data if not given")
@@ -138,11 +141,11 @@ def main():
                     help="print the SHAP / LIME explanation of the first N alarm episodes (default 20; 0 = none)")
     ap.add_argument("--no-explain", action="store_true", help="no SHAP column (faster)")
     a = ap.parse_args()
-    m, tm = read(a.house_file), read(a.transformer_file)
+    m, tm, refs = read(a.house_file), read(a.transformer_file), read(a.refs_file)
     hid = a.house_id or Path(a.house_file).stem
     if len(m) < MIN_HISTORY_STEPS:
         print(f"warning: {len(m)} rows < {MIN_HISTORY_STEPS} ({MIN_HISTORY_STEPS // 96} days): early rows have incomplete features")
-    res = Detector().detect(m, tm, hid, a.pv_kwp, explain=not a.no_explain, lime_episodes=a.lime)
+    res = Detector().detect(m, tm, refs, hid, a.pv_kwp, explain=not a.no_explain, lime_episodes=a.lime)
     n_an = int((res.anomalies != "normal").sum())
     if a.show and n_an:
         show_explanations(res, a.show)
@@ -151,7 +154,7 @@ def main():
     res.to_csv(a.out, index=False)
     print(f"\nmodel: {CFG['model']} | house: {hid} | {len(res)} rows written to {a.out}, {n_an} anomalous")
     if CFG.get("disabled_labels"):
-        print("not detected in single-house mode:", ", ".join(CFG["disabled_labels"]))
+        print("disabled (validation PR-AUC below 0.5):", ", ".join(CFG["disabled_labels"]))
     if n_an:
         print(res[res.anomalies != "normal"].groupby("anomalies").size().rename("steps (15 min)").to_string())
 

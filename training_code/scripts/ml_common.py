@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score
 
-from common import D_SPLIT, LABEL_INFO, LABELS, load_json
+from common import D_INJ, D_SPLIT, LABEL_INFO, LABELS, load_json
 
 META = load_json(D_SPLIT / "feature_columns.json")
 FEATS = META["features"]
@@ -70,6 +70,9 @@ def point_metrics(Y, Yh, P=None):
     return out, per
 
 
+_EVENT_LABEL = pd.read_csv(D_INJ / "events.csv", usecols=["event_id", "label"]).set_index("event_id").label.to_dict()
+
+
 def _runs(flag):
     """(start, end) of each run of True values."""
     f = np.r_[False, np.asarray(flag, bool), False]
@@ -87,6 +90,9 @@ def event_metrics(df, Yh):
     for j, l in enumerate(LABELS):
         ids = np.unique(np.r_[e1[Y[:, j] == 1], e2[Y[:, j] == 1]])
         ids = ids[ids >= 0]
+        # keep only the events of THIS type: the other slot holds the id of an overlapping event of another type
+        # (a house-wide undervoltage overlapping a bias was counted as a bias event before this filter)
+        ids = [i for i in ids if _EVENT_LABEL.get(int(i)) == l]
         for ev in ids:
             m = ((e1 == ev) | (e2 == ev)) & (Y[:, j] == 1)
             if not m.any():

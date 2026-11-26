@@ -48,11 +48,20 @@ single_house (used),transformer_overload,group_P_kw,1.0,1.0,expected
 single_house (used),transformer_overload,group_P_minus_med96,1.0,1.0,expected
 single_house (used),transformer_overload,rest_of_group_kw,1.0,1.0,expected
 single_house (used),transformer_overload,rest_of_group_minus_med96,1.0,1.0,expected
+single_house (used),battery_charge_failure,ref_pv_ratio_nc,0.9994,1.0,expected
+single_house (used),battery_charge_failure,ref_pv_ratio_mean_4,0.9984,0.997,expected
+single_house (used),pv_partial_shading,ref_pv_ratio_nc,0.9969,0.822,expected
+single_house (used),pv_partial_shading,ref_pv_ratio_mean_4,0.9932,0.816,expected
 single_house (used),meter_frozen,meter_repeat_run,1.0,1.0,expected
 single_house (used),meter_frozen,U_repeat_run,1.0,1.0,expected
 single_house (used),meter_dropout,meter_missing,1.0,1.0,expected
 single_house (used),meter_dropout,meter_missing_run,1.0,1.0,expected
 single_house (used),meter_dropout,meter_n_missing_6h,0.999,1.0,expected
+single_house (used),voltage_sensor_fault,ref_pv_ratio_nc,0.9976,0.037,low coverage
+single_house (used),voltage_sensor_fault,ref_pv_ratio_mean_4,0.9951,0.038,low coverage
+single_house (used),falsified_under_report,ref_meter_lr_1h,0.9998,1.0,expected
+single_house (used),falsified_under_report,ref_meter_lr_24h,0.9959,1.0,expected
+single_house (used),falsified_under_report,ref_meter_lr_abs_24h,0.9948,1.0,expected
 single_house (used),falsified_under_report,pv_clear_sky_mean_96_vs_672,0.9963,0.041,low coverage
 single_house (used),falsified_replay,meter_lag96_match,1.0,1.0,expected
 single_house (used),falsified_replay,meter_lag96_match_run,1.0,1.0,expected

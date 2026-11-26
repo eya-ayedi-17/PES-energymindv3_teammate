@@ -256,6 +256,9 @@ def build_features(meas: dict, tm: pd.DataFrame) -> pd.DataFrame:
 # =====================================================================================================
 TRAFO_COLS_SINGLE = ["transformer_loading_percent", "transformer_P_kw", "transformer_Q_kvar", "transformer_U_pu",
                      "other_feeders_P_kw"]                                  # all transformer measurements
+REF_COLS_ALL = ["check_meter_energy_kwh"]                       # second meter, every house
+REF_COLS_PV = ["irradiance_w_m2", "module_temp_c"]              # roof sensor, PV houses
+REF_PERF, REF_TEMP_COEFF = 0.82, -0.004                         # panel data-sheet constants (performance ratio, %/K)
 HIST_DAYS = 14                      # history window of the house's own reference (same time of day)
 MIN_HISTORY_STEPS = 28 * 96         # 14-day reference + 7-day mean on top of it + 3-day trend + margin
 RUN_CAP = 7 * 96                    # cap of the *_run counters (steps)
@@ -283,7 +286,7 @@ def _same_tod_median(x: np.ndarray, days: int) -> np.ndarray:
 
 
 def build_single_house_features(m: pd.DataFrame, tm: pd.DataFrame, house_id: str = "house",
-                                pv_kwp: float | None = None) -> pd.DataFrame:
+                                pv_kwp: float | None = None, refs: pd.DataFrame | None = None) -> pd.DataFrame:
     """Features for ONE house. m = house meter data (same columns as data/02_injected/measured/house_XX),
     tm = transformer data (same timestamps) with columns timestamp + TRAFO_COLS_SINGLE.
     Type A (PV + battery) is detected from the presence of P_PV_W; pv_kwp defaults to the known inventory,
@@ -417,6 +420,16 @@ def build_single_house_features(m: pd.DataFrame, tm: pd.DataFrame, house_id: str
     d["house_type_A"] = float(is_a)
     d["hour_sin"] = np.sin(2 * np.pi * tod / 96)
     d["hour_cos"] = np.cos(2 * np.pi * tod / 96)
+    # optional reference inputs: second meter (all houses) + roof irradiance / temperature sensor (PV houses)
+    if refs is not None:
+        refs = refs.reset_index(drop=True)
+        if len(refs) != len(m) or not (pd.to_datetime(refs.timestamp).values == idx.values).all():
+            raise ValueError("reference data must have exactly the same timestamps as the house data")
+        need = REF_COLS_ALL + (REF_COLS_PV if is_a else [])
+        miss = [c for c in need if c not in refs]
+        if miss:
+            raise ValueError(f"reference data is missing columns: {miss}")
+        d = reference_features(d, refs, is_a, pv_kwp)
     # features that rely on simulator truth (exact appliance sum, channel-independent noise) are removed
     d = d.drop(columns=[c for c in SIMULATOR_TRUTH_FEATURES if c in d.columns])
     # run-length counters capped at 7 days: longer runs carry no extra information and would depend on
@@ -431,9 +444,55 @@ def build_single_house_features(m: pd.DataFrame, tm: pd.DataFrame, house_id: str
 
 
 def latest_features(m: pd.DataFrame, tm: pd.DataFrame, house_id: str = "house", pv_kwp: float | None = None,
-                    n_last: int = 1) -> pd.DataFrame:
+                    n_last: int = 1, refs: pd.DataFrame | None = None) -> pd.DataFrame:
     """Streaming use: give the rolling buffer of raw readings (at least MIN_HISTORY_STEPS rows, 15 min)
     and get the features of the newest n_last steps. Same code path as training, so no train/serve skew."""
     if len(m) < MIN_HISTORY_STEPS:
         raise ValueError(f"need at least {MIN_HISTORY_STEPS} rows ({MIN_HISTORY_STEPS // 96} days) of history, got {len(m)}")
-    return build_single_house_features(m, tm, house_id, pv_kwp).iloc[-n_last:].reset_index(drop=True)
+    return build_single_house_features(m, tm, house_id, pv_kwp, refs=refs).iloc[-n_last:].reset_index(drop=True)
+
+
+def reference_features(d: pd.DataFrame, refs: pd.DataFrame, is_a: bool, kwp: float | None) -> pd.DataFrame:
+    """Features from the two reference inputs.
+    * second meter: log ratio of the energy seen by the house meter and by the second meter over 1 h, 24 h and 7 days,
+      and how it moved vs 1, 3 and 7 days earlier. Normal: about 0 (two class-1 meters). A current bias is a jump of
+      the ratio, a drift is a slow ramp, under-reporting a large negative step. Only steps where both meters have a
+      value are used, so a dropout of the house meter does not look like under-reporting.
+    * roof sensor (PV houses): measured PV power / theoretical PV power from the measured irradiance and module
+      temperature. Sun present + production low = shading; sun low + production low = clouds (ratio stays normal).
+      Only steps where the battery can absorb the PV (SoC < 95 %) are used, because otherwise the inverter curtails."""
+    f = {}
+    e1 = np.clip(d["P_TOT"].to_numpy(float), 0, None) * 0.25 / 1000          # kWh seen by the house meter
+    e2 = refs["check_meter_energy_kwh"].to_numpy(float)
+    ok = np.isfinite(e1) & np.isfinite(e2)
+    e1m, e2m = np.where(ok, e1, np.nan), np.where(ok, e2, np.nan)
+
+    def lr(w, minp):
+        s1, s2 = _roll(e1m, w, "sum", minp), _roll(e2m, w, "sum", minp)
+        eps = 0.002 * w
+        return np.log((s1 + eps) / (s2 + eps))
+    l4, l96, l672 = lr(4, 2), lr(96, 24), lr(672, 96)
+    s96 = pd.Series(l96)
+    f["ref_meter_lr_1h"], f["ref_meter_lr_24h"], f["ref_meter_lr_7d"] = l4, l96, l672
+    f["ref_meter_lr_abs_24h"] = np.abs(l96)
+    f["ref_meter_lr_24h_vs_1d"] = (s96 - s96.shift(96)).to_numpy()
+    f["ref_meter_lr_24h_vs_3d"] = (s96 - s96.shift(288)).to_numpy()
+    f["ref_meter_lr_24h_vs_7d"] = (s96 - s96.shift(672)).to_numpy()
+    if is_a:
+        irr, tmod = refs["irradiance_w_m2"].to_numpy(float), refs["module_temp_c"].to_numpy(float)
+        pv, soc = d["P_PV_W"].to_numpy(float), d["battery_soc_percent"].to_numpy(float)
+        theo = irr * kwp * (1 + REF_TEMP_COEFF * (tmod - 25)) * REF_PERF       # W the panels should deliver
+        ratio = np.where(irr > 100, pv / np.maximum(theo, 1), np.nan)
+        unc = np.where(soc < 95, ratio, np.nan)
+        lagged = lambda x, k: np.r_[np.full(k, np.nan), x[:-k]]                 # noqa: E731
+        with np.errstate(all="ignore"):
+            same_tod = np.nanmean(np.column_stack([lagged(unc, 96 * k) for k in (1, 2, 3)]), axis=1)
+        f["ref_irr_w_m2"], f["ref_module_temp_c"], f["ref_pv_theory_w"] = irr, tmod, theo
+        f["ref_pv_ratio"], f["ref_pv_ratio_nc"] = ratio, unc
+        f["ref_pv_ratio_mean_4"] = _roll(unc, 4, "mean", 2)
+        f["ref_pv_ratio_med_96"] = _roll(unc, 96, "median", 8)
+        f["ref_pv_ratio_mean_288"] = _roll(unc, 288, "mean", 24)
+        f["ref_pv_ratio_vs_prev_days"] = unc - same_tod        # shading repeats at the same hours every day
+    for k, v in f.items():
+        d[k] = v
+    return d

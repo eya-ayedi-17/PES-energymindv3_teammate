@@ -55,7 +55,17 @@ lines += ["## Removed features (simulator truth)", "",
           "| Anomaly type | Feature | AUC alone |", "|---|---|---|"] + \
          [f"| {r.label} | `{r.feature}` | {r.auc:.4f} |" for r in B.sort_values(["label", "auc"], ascending=[True, False]).itertuples()] + \
          ["", "They are replaced by references built from the house's own history (same time of day over the previous "
-          "14 days) and from its share of the transformer's monitored group (`hist_*` features)."]
+          "14 days), from its share of the transformer's monitored group (`hist_*` features) and, in the final system, "
+          "from two reference inputs: a second meter and a roof irradiance / temperature sensor (`ref_*` features).",
+          "", "## Reference features (`ref_*`)", "",
+          "The second meter reads the TRUE grid energy, so the ratio between the house meter and the second meter separates "
+          "every fault of the house meter by design (bias, drift, under-reporting, replay, frozen). The roof sensor gives the "
+          "production the panels should deliver, so the ratio measured / theoretical separates shading and charge failures. "
+          "These pairs are marked `expected`: this is what the devices are for. What the audit checks is that no OTHER "
+          "feature became a shortcut, and that bias and drift are not separated by one feature alone (they need the "
+          "combination of the ratio level, its jump and its trend).", "",
+          "| Anomaly type | Reference feature | AUC alone |", "|---|---|---|"] + \
+         [f"| {r.label} | `{r.feature}` | {r.auc:.4f} |" for r in A[A.feature.str.startswith("ref_")].sort_values(["label", "auc"], ascending=[True, False]).itertuples()]
 (REPORTS / "leakage_audit.md").write_text("\n".join(lines), encoding="utf-8")
 print(R.groupby(["feature_set", "verdict"]).size().to_string())
 if len(sus):

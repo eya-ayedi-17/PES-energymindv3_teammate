@@ -11,7 +11,7 @@ false alarms (in practice: pv_partial_shading, which looks like a cloudy day wit
 
 Output (models/single_house/): <model>.joblib, <model>_results.json, <model>_P_val.npy, <model>_P_test.npy,
         comparison_vs_13_houses.csv, best_model.json (chosen on validation)
-Usage : python 05b_single_house_model.py [model ...]      (default: all six)
+Usage : python 05b_single_house_model.py [--no-refs] [model ...]      (default: all six, with references)
 """
 import gc
 import importlib
@@ -25,13 +25,18 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score
 
-from common import D_INJ, HOUSES, LABELS, MODELS, save_json
+from common import D_INJ, HOUSES, LABELS, MODELS, V3, save_json
 from features_lib import build_single_house_features
 from ml_common import Prep, copy_transform, decide, event_metrics, point_metrics, tune_thresholds
 
 warnings.filterwarnings("ignore")
 bench = importlib.import_module("05_benchmark_single_models")       # same make() and PREP as step 5
-OUT = MODELS / "single_house"
+# FINAL SYSTEM (default): one house + transformer + the two reference inputs of data/05_references (second meter,
+# roof irradiance / temperature sensor). Models go to models/single_house_refs.
+# --no-refs: one house + transformer only; models go to models/single_house (kept for comparison).
+REFS = "--no-refs" not in sys.argv
+D_REF = V3 / "data" / "05_references"
+OUT = MODELS / ("single_house_refs" if REFS else "single_house")
 OUT.mkdir(parents=True, exist_ok=True)
 ALL = ["lightgbm", "xgboost", "random_forest", "extra_trees", "hist_gb", "mlp"]
 MIN_VAL_PR_AUC = 0.5
@@ -40,7 +45,8 @@ MIN_VAL_PR_AUC = 0.5
 def build_data():
     t0 = time.time()
     tm = pd.read_parquet(D_INJ / "transformer_meter.parquet")
-    X = pd.concat([build_single_house_features(pd.read_parquet(D_INJ / "measured" / f"{h}.parquet"), tm, h)
+    X = pd.concat([build_single_house_features(pd.read_parquet(D_INJ / "measured" / f"{h}.parquet"), tm, h,
+                                               refs=pd.read_csv(D_REF / f"{h}.csv", parse_dates=["timestamp"]) if REFS else None)
                    for h in HOUSES], ignore_index=True)
     feats = [c for c in X.columns if c not in ("timestamp", "house_id")]
     X[feats] = X[feats].astype(np.float32)
@@ -142,4 +148,4 @@ def main(names):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:] or ALL)
+    main([a for a in sys.argv[1:] if not a.startswith("--")] or ALL)
