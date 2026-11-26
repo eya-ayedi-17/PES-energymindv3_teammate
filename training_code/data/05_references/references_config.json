@@ -1,0 +1,45 @@
+{
+  "seed": 17,
+  "noise": {
+    "meter_gain": 0.01,
+    "meter_step": 0.003,
+    "irr_gain": 0.02,
+    "irr_step": 0.01,
+    "irr_offset_w_m2": 1.0,
+    "temp_offset_c": 0.5,
+    "temp_step_c": 0.3
+  },
+  "pv_constants": {
+    "perf_ratio": 0.82,
+    "temp_coeff_per_K": -0.004,
+    "f_unit": 0.985
+  },
+  "check": {
+    "house_02": {
+      "kwp": 5.0,
+      "poa_max_w_m2": 1054.002944473199,
+      "poa_mean_daylight_w_m2": 439.0716503515252
+    },
+    "house_04": {
+      "kwp": 3.0,
+      "poa_max_w_m2": 1061.938346763068,
+      "poa_mean_daylight_w_m2": 442.1496614511482
+    },
+    "house_09": {
+      "kwp": 4.0,
+      "poa_max_w_m2": 1038.8601448813508,
+      "poa_mean_daylight_w_m2": 433.1872838142016
+    },
+    "house_11": {
+      "kwp": 3.0,
+      "poa_max_w_m2": 1035.9976220421493,
+      "poa_mean_daylight_w_m2": 432.07335493787366
+    }
+  },
+  "max_difference_between_pv_houses_at_noon": 0.01708280088349179,
+  "columns": {
+    "check_meter_energy_kwh": "all houses, kWh per 15 min",
+    "irradiance_w_m2": "PV houses, W/m2 in the panel plane",
+    "module_temp_c": "PV houses, deg C"
+  }
+}

@@ -117,7 +117,8 @@ detector_xgboost/      the detector: frozen model, feature code, SHAP/LIME, comm
   predict.py               Detector class and command line
   labels.json              category, agent action and human decision per anomaly type
 reports/               benchmark, anomaly-injection method, data sources, leakage audit, explainability
-training_code/         the code that produced the model (injection, references, features, training, audit, reports)
+training_code/         a self-contained copy of the project (same layout as energymind_v3): scripts/, detector/, config/,
+                       models/ (final xgboost and lightgbm + the scores of all models), data/ (event catalogue, feature list), export/ (packages)
 ```
 
 ## Reports
@@ -129,6 +130,17 @@ training_code/         the code that produced the model (injection, references, 
 | [`EnergyMind_meters_and_data_sources.pdf`](reports/EnergyMind_meters_and_data_sources.pdf) | where each input comes from in a real deployment, and the two added devices |
 | [`leakage_audit.md`](reports/leakage_audit.md) | single features that separate an anomaly almost perfectly, expected or suspect |
 | [`explainability.md`](reports/explainability.md) | global SHAP per type, LIME vs SHAP agreement |
+
+## Project detector (all models, from this repository)
+
+`training_code/detector/detector.py` runs every model of the project from the files of this repository (no dataset needed):
+
+```
+cd training_code/detector
+python detector.py --house-file ../../detector_xgboost/sample_data/house_09.csv --transformer-file ../../detector_xgboost/sample_data/transformer_house_09.csv --refs-file ../../detector_xgboost/sample_data/references_house_09.csv --model xgboost
+```
+
+`--model xgboost` or `lightgbm` (final models, with the two reference inputs; no `--model` = the best on validation, LightGBM), `single_house_norefs_xgboost` / `single_house_norefs_lightgbm` (one house + transformer only, no reference inputs: 3 types are not detected). The other trained models (Random Forest, Extra Trees, HistGradientBoosting, MLP) are not stored here because of their size; their scores are in `training_code/models/single_house_refs/*_results.json`.
 
 ## Training code
 

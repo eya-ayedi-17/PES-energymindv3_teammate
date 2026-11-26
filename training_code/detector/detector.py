@@ -124,7 +124,8 @@ class Detector:
             out.loc[rows, "shap_top"] = [shap_text(top_shap(C[i, cls[r]], X[r], self.features, k)) for i, r in enumerate(rows)]
         if lime_episodes and len(rows):
             bg_path = self.folder / "lime_background.parquet"
-            bg = pd.read_parquet(bg_path).reindex(columns=self.features).to_numpy(np.float32)
+            bg_df = pd.read_parquet(bg_path) if bg_path.exists() else pd.read_csv(self.folder / "lime_background.csv.gz")
+            bg = bg_df.reindex(columns=self.features).to_numpy(np.float32)
             lx = LimeExplainer(self.s["prep"].transform(bg), self.features, ["normal"] + LABELS)
             starts = [r for r in rows if r == 0 or out.anomalies.iat[r - 1] != out.anomalies.iat[r]
                       or out.house_id.iat[r - 1] != out.house_id.iat[r]][:lime_episodes]

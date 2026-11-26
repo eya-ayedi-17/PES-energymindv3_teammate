@@ -1,0 +1,54 @@
+{
+  "pairs_tried": [
+    {
+      "pair": "meter_drift / meter_bias_current",
+      "validation_confusion": 0.375,
+      "specialist_auc_val": 0.974,
+      "policy": "any",
+      "validation_gain_F1_sum": 0.0483
+    },
+    {
+      "pair": "battery_discharge_failure / falsified_replay",
+      "validation_confusion": 0.178,
+      "specialist_auc_val": 1.0,
+      "policy": "not kept",
+      "validation_gain_F1_sum": 0.0
+    },
+    {
+      "pair": "meter_drift / voltage_sensor_fault",
+      "validation_confusion": 0.132,
+      "specialist_auc_val": 1.0,
+      "policy": "not kept",
+      "validation_gain_F1_sum": 0.0
+    },
+    {
+      "pair": "pv_partial_shading / meter_noise",
+      "validation_confusion": 0.105,
+      "specialist_auc_val": 1.0,
+      "policy": "not kept",
+      "validation_gain_F1_sum": 0.0
+    }
+  ],
+  "kept": [
+    {
+      "types": [
+        "meter_drift",
+        "meter_bias_current"
+      ],
+      "policy": "any",
+      "validation_gain": 0.04833373534823404
+    }
+  ],
+  "test": {
+    "macro_f1_before": 0.9551506968779211,
+    "macro_f1_after": 0.9558342696629418,
+    "event_recall_before": 0.9767857142857144,
+    "event_recall_after": 0.9767857142857144,
+    "event_precision_before": 0.8151578402957053,
+    "event_precision_after": 0.8328147226799623,
+    "exact_accuracy_before": 0.981198489010989,
+    "exact_accuracy_after": 0.9830442994505495,
+    "detect_f1_before": 0.9876352395672334,
+    "detect_f1_after": 0.9876352395672334
+  }
+}

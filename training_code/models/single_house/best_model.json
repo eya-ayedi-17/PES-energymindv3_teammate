@@ -1,0 +1,13 @@
+{
+  "system": "single_house_lightgbm",
+  "model": "lightgbm",
+  "chosen_on": "validation macro F1",
+  "val_macro_f1": {
+    "lightgbm": 0.7421962216012183,
+    "xgboost": 0.7318232107385813,
+    "random_forest": 0.7405374923210143,
+    "extra_trees": 0.7291829088006113,
+    "hist_gb": 0.7324774909923303,
+    "mlp": 0.6607173022163078
+  }
+}
